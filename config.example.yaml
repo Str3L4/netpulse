@@ -1,0 +1,105 @@
+app:
+  title: "NETPULSE"
+  subtitle: "Network Gateway & Bypass Telemetry"
+  network_cidr: "192.168.1.0/24"
+  host: "127.0.0.1"
+  port: 8888
+  refresh_seconds: 7
+
+# Topology nodes to monitor
+nodes:
+  - id: "pc"
+    name: "Workstation (PC)"
+    host: "192.168.1.100"
+    type: "client"
+    role: "Local Workstation"
+  - id: "router"
+    name: "Main Router"
+    host: "192.168.1.1"
+    probe_port: 80
+    type: "router"
+    role: "Default Gateway"
+    collector: "mikrotik"
+  - id: "server"
+    name: "Linux Gateway"
+    host: "192.168.1.254"
+    probe_port: 22
+    type: "gateway"
+    role: "Proxy & DPI Bypass"
+    collector: "linux_ssh"
+  - id: "internet"
+    name: "Internet (WAN)"
+    host: "1.1.1.1"
+    probe_port: 53
+    type: "wan"
+    role: "Global Internet"
+
+# Services to probe
+services:
+  zapret:
+    enabled: true
+    name: "Zapret DPI Bypass"
+    mode: "DPI Desync"
+    test_url: "https://www.youtube.com/generate_204"
+  vless:
+    enabled: true
+    name: "VLESS Reality Tunnel"
+    protocol: "VLESS + Reality"
+    socks_host: "192.168.1.254"
+    socks_port: 10808
+    http_port: 10809
+  telegram:
+    enabled: false
+    name: "Telegram Proxy"
+    port_ws: 1443
+    port_socks: 10808
+  cloudcode:
+    enabled: true
+    name: "Google CloudCode AI"
+    test_host: "daily-cloudcode-pa.googleapis.com"
+
+# Hardware / system collectors
+collectors:
+  mikrotik:
+    enabled: true
+    host: "${MIKROTIK_HOST}"
+    user: "${MIKROTIK_USER}"
+    password: "${MIKROTIK_PASSWORD}"
+  linux_ssh:
+    enabled: true
+    host: "${GATEWAY_HOST}"
+    user: "${GATEWAY_USER}"
+    password: "${GATEWAY_PASSWORD}"
+    services: ["zapret", "xray"]
+
+# Self-repair configuration
+repair:
+  windows_proxy:
+    enabled: true
+    direct_connection: true
+  proxybridge:
+    enabled: true
+    profile_path: "%APPDATA%\\ProxyBridge\\profiles\\Default.pbprofile"
+    proxy_host: "192.168.1.254"
+    proxy_port: "10808"
+    rules:
+      - name: "AGRule"
+        process: "Antigravity.exe"
+        enabled: false
+      - name: "LRAG"
+        process: "language_server.exe"
+        enabled: true
+  linux_gateway:
+    enabled: true
+    # xray_golden_file: "xray_golden.json" # Optional: auto-deploy golden Xray config if missing
+    restart_services: ["zapret", "xray"]
+  router_rules:
+    enabled: false # Enable if managing MikroTik RouterOS rules
+    discord_mangle: true
+    fasttrack_enabled: true
+    ggc_capture_sni: true
+    flush_subnets: []
+    ggc_subnets:
+      - "172.253.0.0/16"
+      - "108.177.0.0/17"
+      - "209.85.128.0/17"

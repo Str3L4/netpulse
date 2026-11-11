@@ -1,0 +1,34 @@
+# Environment secrets and tokens
+.env
+chat_config.json
+
+# Local configurations and private credentials
+config.yaml
+ANTIGRAVITY_EMERGENCY_CONTEXT.md
+xray_golden.json
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Temporary logs and runtime files
+*.log
+*.tmp
+*.bak
+
+# Scratch scripts
+test_*.py
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+
+# OS specific files
+Thumbs.db
+Desktop.ini
+.DS_Store
