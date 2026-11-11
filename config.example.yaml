@@ -103,3 +103,49 @@ repair:
       - "172.253.0.0/16"
       - "108.177.0.0/17"
       - "209.85.128.0/17"
+
+# Self-Healing Watchdog (automatic repair upon consecutive failures)
+watchdog:
+  enabled: true
+  failure_threshold: 3
+  cooldown_seconds: 120
+
+# Wake-on-LAN configuration
+wol:
+  broadcast_ip: "192.168.1.255"
+  port: 9
+  default_mac: "00:11:22:33:44:55"
+
+# Telegram Bot (alerts and remote /status, /repair commands)
+telegram_bot:
+  enabled: false
+  token: "${TELEGRAM_BOT_TOKEN}"
+  chat_id: "${TELEGRAM_ADMIN_CHAT_ID}"
+
+# DPI & Connectivity Health Probe Matrix
+service_matrix:
+  - id: "youtube"
+    name: "YouTube CDN"
+    target: "www.youtube.com"
+    port: 443
+    route: "direct"
+  - id: "discord"
+    name: "Discord Gateway"
+    target: "gateway.discord.gg"
+    port: 443
+    route: "direct"
+  - id: "cloudcode"
+    name: "Google CloudCode AI"
+    target: "daily-cloudcode-pa.googleapis.com"
+    port: 443
+    route: "socks"
+  - id: "openai"
+    name: "OpenAI API"
+    target: "api.openai.com"
+    port: 443
+    route: "socks"
+  - id: "github"
+    name: "GitHub API"
+    target: "api.github.com"
+    port: 443
+    route: "direct"

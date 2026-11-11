@@ -21,6 +21,7 @@ CONFIG_FILE = os.path.join(BASE_DIR, "config.yaml")
 CONFIG_EXAMPLE_FILE = os.path.join(BASE_DIR, "config.example.yaml")
 ENV_FILE = os.path.join(BASE_DIR, ".env")
 CONTEXT_FILE = os.path.join(BASE_DIR, "ANTIGRAVITY_EMERGENCY_CONTEXT.md")
+CONTEXT_EXAMPLE_FILE = os.path.join(BASE_DIR, "EMERGENCY_CONTEXT.example.md")
 CHAT_CONFIG_FILE = os.path.join(BASE_DIR, "chat_config.json")
 
 def load_dotenv(path=ENV_FILE):
@@ -61,6 +62,38 @@ def load_config():
 
 APP_CONFIG = load_config()
 
+def load_chat_config():
+    if os.path.exists(CHAT_CONFIG_FILE):
+        try:
+            with open(CHAT_CONFIG_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    env_key = os.environ.get("GEMINI_API_KEY", "")
+    return {"api_key": env_key, "model": "gemini-2.5-flash"}
+
+def save_chat_config(api_key, model="gemini-2.5-flash"):
+    cfg = load_chat_config()
+    if api_key is not None:
+        cfg["api_key"] = api_key
+    if model:
+        cfg["model"] = model
+    try:
+        with open(CHAT_CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+    except Exception as e:
+        logger.error(f"Error saving chat config: {e}")
+
+def get_context_document():
+    path = CONTEXT_FILE if os.path.exists(CONTEXT_FILE) else CONTEXT_EXAMPLE_FILE
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception:
+            pass
+    return "No emergency context file found."
+
 # Global telemetry state initialized dynamically
 telemetry_data = {
     "status": "initializing",
@@ -68,6 +101,19 @@ telemetry_data = {
     "app": APP_CONFIG.get("app", {}),
     "nodes": {},
     "bypasses": {},
+    "watchdog": {
+        "enabled": APP_CONFIG.get("watchdog", {}).get("enabled", True),
+        "failures": 0,
+        "threshold": APP_CONFIG.get("watchdog", {}).get("failure_threshold", 3),
+        "last_heal": "Ожидание"
+    },
+    "mikrotik_traffic": {
+        "ether1": {"rx": "0 bps", "tx": "0 bps"},
+        "ether2": {"rx": "0 bps", "tx": "0 bps"},
+        "ether3": {"rx": "0 bps", "tx": "0 bps"}
+    },
+    "network_devices": [],
+    "service_matrix": {},
     "pi_hardware": {
         "uptime": "N/A",
         "cpu_load": "0.00",
@@ -128,20 +174,17 @@ if services_cfg.get("vless", {}).get("enabled", True):
         "status": "unknown",
         "name": v.get("name", "VLESS Reality"),
         "protocol": v.get("protocol", "VLESS + Reality"),
-        "external_ip": "unknown",
         "socks_port": v.get("socks_port", 10808),
-        "http_port": v.get("http_port", 10809),
         "latency": 0,
-        "proxybridge_status": "unknown"
+        "external_ip": "checking...",
+        "proxybridge_status": "checking..."
     }
 
 if services_cfg.get("telegram", {}).get("enabled", False):
-    tg = services_cfg["telegram"]
     telemetry_data["bypasses"]["telegram"] = {
         "status": "unknown",
-        "name": tg.get("name", "Telegram Proxy"),
-        "port_ws": tg.get("port_ws", 1443),
-        "port_socks": tg.get("port_socks", 10808),
+        "name": services_cfg["telegram"].get("name", "Telegram Proxy"),
+        "port_ws": services_cfg["telegram"].get("port_ws", 1443),
         "latency": 0
     }
 
@@ -166,7 +209,7 @@ def add_log(msg, level="info"):
         if len(telemetry_data["logs"]) > 50:
             telemetry_data["logs"].pop()
 
-def probe_tcp(host, port, timeout=0.5):
+def probe_tcp(host, port, timeout=0.8):
     t0 = time.time()
     try:
         s = socket.create_connection((host, port), timeout=timeout)
@@ -203,6 +246,28 @@ def test_socks5(host, port, target_host="api.ipify.org", target_port=80, timeout
     except Exception as e:
         return False, 0, str(e)
 
+def test_socks_tcp(proxy_host, proxy_port, target_host, target_port=443, timeout=2.0):
+    t0 = time.time()
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(timeout)
+        s.connect((proxy_host, proxy_port))
+        s.sendall(b"\x05\x01\x00")
+        resp = s.recv(2)
+        if resp != b"\x05\x00":
+            s.close()
+            return False, 0
+        domain_bytes = target_host.encode("utf-8")
+        req = b"\x05\x01\x00\x03" + bytes([len(domain_bytes)]) + domain_bytes + target_port.to_bytes(2, "big")
+        s.sendall(req)
+        resp = s.recv(10)
+        s.close()
+        if len(resp) >= 2 and resp[1] == 0:
+            return True, round((time.time() - t0) * 1000, 1)
+        return False, 0
+    except Exception:
+        return False, 0
+
 def test_youtube():
     t0 = time.time()
     try:
@@ -230,6 +295,52 @@ def test_cloudcode_api(timeout=4.0):
         return True, lat, resp.status_code
     except Exception as e:
         return False, 0, str(e)
+
+def send_wol(mac_address, broadcast_ip="255.255.255.255", port=9):
+    clean_mac = re.sub(r"[^0-9A-Fa-f]", "", mac_address)
+    if len(clean_mac) != 12:
+        return False, f"Некорректный MAC-адрес: {mac_address}"
+    mac_bytes = bytes.fromhex(clean_mac)
+    magic_packet = b"\xff" * 6 + (mac_bytes * 16)
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            s.sendto(magic_packet, (broadcast_ip, port))
+            if broadcast_ip != "255.255.255.255":
+                s.sendto(magic_packet, ("255.255.255.255", port))
+        return True, f"Magic packet отправлен на {mac_address} ({broadcast_ip}:{port})"
+    except Exception as e:
+        return False, str(e)
+
+def probe_service_matrix():
+    matrix = APP_CONFIG.get("service_matrix", [])
+    if not matrix:
+        return {}
+    vless_cfg = APP_CONFIG.get("services", {}).get("vless", {})
+    socks_h = vless_cfg.get("socks_host", "127.0.0.1")
+    socks_p = vless_cfg.get("socks_port", 10808)
+
+    results = {}
+    for item in matrix:
+        sid = item.get("id")
+        target = item.get("target")
+        port = item.get("port", 443)
+        route = item.get("route", "direct")
+        name = item.get("name", sid)
+
+        if route == "socks":
+            ok, lat = test_socks_tcp(socks_h, socks_p, target, port, timeout=2.0)
+        else:
+            ok, lat = probe_tcp(target, port, timeout=1.5)
+
+        results[sid] = {
+            "name": name,
+            "target": target,
+            "route": route,
+            "status": "online" if ok else "offline",
+            "latency": lat
+        }
+    return results
 
 class PiCollector:
     def __init__(self, cfg):
@@ -294,6 +405,8 @@ class MikroTikCollector:
     def __init__(self, cfg):
         self.cfg = cfg
         self.client = None
+        self.lease_counter = 0
+        self.cached_leases = []
 
     def get_client(self):
         if not self.cfg.get("enabled", True):
@@ -330,34 +443,197 @@ class MikroTikCollector:
     def query(self):
         c = self.get_client()
         if not c:
-            return None
+            return None, {}, []
+        
+        # 1. System resource check
         cmd = ':put ([/system resource get cpu-load] . "|" . [/system resource get free-memory] . "|" . [/system resource get total-memory] . "|" . [/system resource get uptime] . "|" . [/interface get ether1 running] . "|" . [/interface get ether2 running] . "|" . [/interface get ether3 running])'
+        res_str = ""
         try:
-            stdin, stdout, stderr = c.exec_command(cmd, timeout=3)
-            res = stdout.read().decode("utf-8").strip()
-            return res
+            stdin, stdout, stderr = c.exec_command(cmd, timeout=2)
+            res_str = stdout.read().decode("utf-8").strip()
         except Exception as e:
-            logger.warning(f"MikroTik query error: {e}")
-            return None
+            logger.warning(f"MikroTik resource query error: {e}")
+
+        # 2. Interface traffic rates
+        traffic_map = {}
+        try:
+            stdin, stdout, stderr = c.exec_command('/interface monitor-traffic ether1,ether2,ether3 once', timeout=2)
+            traffic_out = stdout.read().decode("utf-8")
+            traffic_map = self._parse_traffic(traffic_out)
+        except Exception as e:
+            logger.warning(f"MikroTik traffic query error: {e}")
+
+        # 3. DHCP leases (queried every 4 cycles to stay fast)
+        self.lease_counter += 1
+        if self.lease_counter >= 4 or not self.cached_leases:
+            self.lease_counter = 0
+            try:
+                lease_cmd = ':foreach i in=[/ip dhcp-server lease find] do={:put ([/ip dhcp-server lease get $i address] . "|" . [/ip dhcp-server lease get $i mac-address] . "|" . [/ip dhcp-server lease get $i host-name] . "|" . [/ip dhcp-server lease get $i status])}'
+                stdin, stdout, stderr = c.exec_command(lease_cmd, timeout=2)
+                lines = stdout.read().decode("utf-8").strip().splitlines()
+                devices = []
+                for l in lines:
+                    parts = l.strip().split("|")
+                    if len(parts) >= 2:
+                        devices.append({
+                            "ip": parts[0],
+                            "mac": parts[1],
+                            "hostname": parts[2] if len(parts) > 2 and parts[2] else "Устройство",
+                            "status": parts[3] if len(parts) > 3 else "active"
+                        })
+                if devices:
+                    self.cached_leases = devices
+            except Exception as e:
+                logger.warning(f"MikroTik DHCP lease query error: {e}")
+
+        return res_str, traffic_map, self.cached_leases
+
+    def _parse_traffic(self, output):
+        rates = {}
+        names = []
+        for line in output.splitlines():
+            line = line.strip()
+            if not line or ":" not in line:
+                continue
+            k, v = line.split(":", 1)
+            k = k.strip()
+            parts = v.split()
+            if k == "name":
+                names = parts
+                for n in names:
+                    rates[n] = {"rx": "0 bps", "tx": "0 bps"}
+            elif k == "rx-bits-per-second":
+                for idx, val in enumerate(parts):
+                    if idx < len(names):
+                        rates[names[idx]]["rx"] = val
+            elif k == "tx-bits-per-second":
+                for idx, val in enumerate(parts):
+                    if idx < len(names):
+                        rates[names[idx]]["tx"] = val
+        return rates
 
 pi_collector = PiCollector(APP_CONFIG.get("collectors", {}).get("linux_ssh", {}))
 mt_collector = MikroTikCollector(APP_CONFIG.get("collectors", {}).get("mikrotik", {}))
 
+# Telegram Bot Manager
+class TelegramBotManager:
+    def __init__(self, cfg):
+        self.cfg = cfg or {}
+        self.token = self.cfg.get("token", "")
+        self.chat_id = str(self.cfg.get("chat_id", "")).strip()
+        self.enabled = bool(self.cfg.get("enabled", False) and self.token and self.chat_id)
+        self.last_update_id = 0
+        self.thread = None
+
+    def start(self):
+        if self.enabled:
+            self.thread = threading.Thread(target=self._poll_loop, daemon=True)
+            self.thread.start()
+            logger.info("Telegram Bot started in background")
+            self.send_message("⚡ **NETPULSE Console активен**\nСлужба мониторинга и автовосстановления запущена.\nОтправьте `/status` для сводки или `/repair` для починки.")
+
+    def _get_proxies(self):
+        vless_cfg = APP_CONFIG.get("services", {}).get("vless", {})
+        socks_h = vless_cfg.get("socks_host", "127.0.0.1")
+        socks_p = vless_cfg.get("socks_port", 10808)
+        return {
+            "http": f"socks5h://{socks_h}:{socks_p}",
+            "https": f"socks5h://{socks_h}:{socks_p}"
+        }
+
+    def send_message(self, text, parse_mode="Markdown"):
+        if not self.enabled or not self.token or not self.chat_id:
+            return False
+        url = f"https://api.telegram.org/bot{self.token}/sendMessage"
+        payload = {"chat_id": self.chat_id, "text": text, "parse_mode": parse_mode, "disable_web_page_preview": True}
+        for proxies in [self._get_proxies(), None]:
+            try:
+                r = requests.post(url, json=payload, proxies=proxies, timeout=5)
+                if r.status_code == 200:
+                    return True
+            except Exception:
+                pass
+        return False
+
+    def _poll_loop(self):
+        while True:
+            try:
+                url = f"https://api.telegram.org/bot{self.token}/getUpdates"
+                params = {"offset": self.last_update_id + 1, "timeout": 20}
+                proxies = self._get_proxies()
+                r = requests.get(url, params=params, proxies=proxies, timeout=25)
+                if r.status_code == 200:
+                    data = r.json()
+                    for update in data.get("result", []):
+                        self.last_update_id = update["update_id"]
+                        msg = update.get("message", {})
+                        from_id = str(msg.get("chat", {}).get("id", ""))
+                        if from_id == self.chat_id:
+                            text = msg.get("text", "").strip()
+                            self._handle_command(text)
+            except Exception:
+                time.sleep(5)
+            time.sleep(1)
+
+    def _handle_command(self, text):
+        if text.startswith("/status"):
+            with telemetry_lock:
+                snap = json.loads(json.dumps(telemetry_data))
+            yt = snap["bypasses"].get("zapret", {})
+            vless = snap["bypasses"].get("vless", {})
+            pi = snap.get("pi_hardware", {})
+            mt = snap.get("mikrotik_hardware", {})
+            reply = (
+                f"📊 **NETPULSE: Статус сети**\n\n"
+                f"• **YouTube DPI:** `{yt.get('status', 'unknown')}` ({yt.get('youtube_latency', 0)} ms)\n"
+                f"• **VLESS Reality:** `{vless.get('status', 'unknown')}` ({vless.get('latency', 0)} ms, IP: `{vless.get('external_ip', '--')}`)\n"
+                f"• **Linux Gateway:** Temp: `{pi.get('temperature', 0)}°C`, Load: `{pi.get('cpu_load', 0)}`, Uptime: `{pi.get('uptime', '--')}`\n"
+                f"• **MikroTik Router:** CPU: `{mt.get('cpu_load', 0)}%`, Free RAM: `{mt.get('ram_used_mb', 0)} MB`\n"
+            )
+            self.send_message(reply)
+        elif text.startswith("/repair"):
+            self.send_message("⚙️ **Запуск конвейера восстановления эталона...**")
+            logs = run_self_repair()
+            all_ok = all(l.get("status") in ["ok", "warning"] for l in logs)
+            res_text = "\n".join([f"• {'✓' if l.get('status')=='ok' else '▲'} *{l.get('step')}:* {l.get('msg')}" for l in logs])
+            self.send_message(f"🏁 **Результат восстановления:** {'УСПЕШНО' if all_ok else 'ПРЕДУПРЕЖДЕНИЕ'}\n\n{res_text}")
+        elif text.startswith("/wol"):
+            mac = APP_CONFIG.get("wol", {}).get("default_mac", "")
+            bip = APP_CONFIG.get("wol", {}).get("broadcast_ip", "255.255.255.255")
+            ok, msg = send_wol(mac, bip)
+            self.send_message(f"⚡ **Wake-on-LAN:** {msg}")
+        elif text.startswith("/help") or text.startswith("/start"):
+            self.send_message(
+                "🤖 **Команды сетевого ассистента NETPULSE:**\n\n"
+                "• `/status` — моментальная сводка здоровья сети\n"
+                "• `/repair` — запуск полного конвейера починки узлов\n"
+                "• `/wol` — отправка magic packet для включения ПК\n"
+            )
+
+tg_bot = TelegramBotManager(APP_CONFIG.get("telegram_bot", {}))
+
 def check_process_running(proc_name):
+    if sys.platform != "win32":
+        return True
     try:
         import subprocess
-        out = subprocess.check_output(f'tasklist /FI "IMAGENAME eq {proc_name}"', shell=True).decode('cp866', errors='replace')
+        out = subprocess.check_output(f'tasklist /FI "IMAGENAME eq {proc_name}"', shell=True).decode("cp866", errors="replace")
         return proc_name.lower() in out.lower()
     except Exception:
         return False
 
 def telemetry_worker():
-    add_log("NETPULSE служба телеметрии запущена", "info")
     refresh_sec = APP_CONFIG.get("app", {}).get("refresh_seconds", 7)
+    watchdog_cfg = APP_CONFIG.get("watchdog", {})
+    watchdog_threshold = watchdog_cfg.get("failure_threshold", 3)
+    watchdog_cooldown = watchdog_cfg.get("cooldown_seconds", 120)
     
+    watchdog_consecutive_fails = 0
+    watchdog_last_heal = 0
+
     while True:
         try:
-            # 1. Probe configured nodes
+            # 1. Probe Topology Nodes
             for n in APP_CONFIG.get("nodes", []):
                 nid = n["id"]
                 host = n.get("host", "")
@@ -397,7 +673,10 @@ def telemetry_worker():
             # 5. Check ProxyBridge
             pb_running = check_process_running("ProxyBridge.exe")
 
-            # 6. Query Linux/Pi
+            # 6. Service Matrix Probe
+            matrix_results = probe_service_matrix()
+
+            # 7. Query Linux/Pi
             pi_res = pi_collector.query()
             pi_data = {}
             if pi_res and "|" in pi_res:
@@ -439,8 +718,8 @@ def telemetry_worker():
                         "services": services
                     }
 
-            # 7. Query MikroTik
-            mt_res = mt_collector.query()
+            # 8. Query MikroTik
+            mt_res, mt_traffic, mt_leases = mt_collector.query()
             mt_data = {}
             if mt_res and "|" in mt_res:
                 parts = mt_res.split("|")
@@ -467,6 +746,12 @@ def telemetry_worker():
             with telemetry_lock:
                 telemetry_data["status"] = "online"
                 telemetry_data["timestamp"] = time.time()
+                if matrix_results:
+                    telemetry_data["service_matrix"] = matrix_results
+                if mt_traffic:
+                    telemetry_data["mikrotik_traffic"] = mt_traffic
+                if mt_leases:
+                    telemetry_data["network_devices"] = mt_leases
 
                 if "zapret" in telemetry_data["bypasses"]:
                     telemetry_data["bypasses"]["zapret"]["status"] = "online" if (pi_data.get("services", {}).get("zapret") == "active" and yt_ok) else "degraded"
@@ -502,6 +787,38 @@ def telemetry_worker():
                     if len(hist[key]) > max_points:
                         hist[key] = hist[key][-max_points:]
 
+            # 9. Watchdog & Auto-Healing
+            with telemetry_lock:
+                w_enabled = telemetry_data["watchdog"]["enabled"]
+            
+            is_healthy = yt_ok and (vless_ok or not v_cfg.get("enabled", True))
+            if not is_healthy:
+                watchdog_consecutive_fails += 1
+                with telemetry_lock:
+                    telemetry_data["watchdog"]["failures"] = watchdog_consecutive_fails
+                
+                if w_enabled and watchdog_consecutive_fails >= watchdog_threshold:
+                    now = time.time()
+                    if now - watchdog_last_heal > watchdog_cooldown:
+                        watchdog_last_heal = now
+                        watchdog_consecutive_fails = 0
+                        time_str = time.strftime("%H:%M:%S")
+                        with telemetry_lock:
+                            telemetry_data["watchdog"]["failures"] = 0
+                            telemetry_data["watchdog"]["last_heal"] = time_str
+                        
+                        add_log(f"Watchdog: {watchdog_threshold} сбоев подряд. Запуск автовосстановления...", "warning")
+                        logger.warning("Watchdog triggered self-repair")
+                        rep_logs = run_self_repair()
+                        add_log("Watchdog: Автовосстановление выполнено", "success")
+                        if tg_bot.enabled:
+                            tg_bot.send_message(f"⚠️ **NETPULSE Watchdog: Автовосстановление**\nЗафиксировано {watchdog_threshold} сбоев подряд.\nКонвейер починки выполнен в {time_str}.")
+            else:
+                if watchdog_consecutive_fails > 0:
+                    watchdog_consecutive_fails = 0
+                    with telemetry_lock:
+                        telemetry_data["watchdog"]["failures"] = 0
+
             add_log(f"Проверка: YouTube={yt_lat}ms, VPN={vless_lat}ms ({vless_ip})", "success" if (yt_ok and vless_ok) else "warning")
 
         except Exception as e:
@@ -511,16 +828,18 @@ def telemetry_worker():
         time.sleep(refresh_sec)
 
 def enforce_windows_direct_proxy():
+    if sys.platform != "win32":
+        return
     import winreg
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Software\Microsoft\Windows\CurrentVersion\Internet Settings', 0, winreg.KEY_SET_VALUE) as key:
-        winreg.SetValueEx(key, 'ProxyEnable', 0, winreg.REG_DWORD, 0)
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Internet Settings", 0, winreg.KEY_SET_VALUE) as key:
+        winreg.SetValueEx(key, "ProxyEnable", 0, winreg.REG_DWORD, 0)
         try:
-            winreg.DeleteValue(key, 'ProxyServer')
+            winreg.DeleteValue(key, "ProxyServer")
         except FileNotFoundError:
             pass
 
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Software\Microsoft\Windows\CurrentVersion\Internet Settings\Connections', 0, winreg.KEY_ALL_ACCESS) as conn_key:
-        for val_name in ['DefaultConnectionSettings', 'SavedLegacySettings']:
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Internet Settings\Connections", 0, winreg.KEY_ALL_ACCESS) as conn_key:
+        for val_name in ["DefaultConnectionSettings", "SavedLegacySettings"]:
             try:
                 val, val_type = winreg.QueryValueEx(conn_key, val_name)
                 if len(val) >= 9 and val[8] != 1:
@@ -531,6 +850,8 @@ def enforce_windows_direct_proxy():
                 pass
 
 def enforce_proxybridge_profile():
+    if sys.platform != "win32":
+        return False, "Пропуск ProxyBridge (не Windows)"
     pb_cfg = APP_CONFIG.get("repair", {}).get("proxybridge", {})
     raw_path = pb_cfg.get("profile_path", r"%APPDATA%\ProxyBridge\profiles\Default.pbprofile")
     pb_path = os.path.expandvars(raw_path)
@@ -539,18 +860,18 @@ def enforce_proxybridge_profile():
         os.makedirs(os.path.dirname(pb_path), exist_ok=True)
         cfg = {"Version": "1.0", "Name": "Default", "ProxyConfigs": [], "ProxyRules": []}
     else:
-        with open(pb_path, 'r', encoding='utf-8') as f:
+        with open(pb_path, "r", encoding="utf-8") as f:
             cfg = json.load(f)
 
     updated = False
-    p_configs = cfg.setdefault('ProxyConfigs', [])
+    p_configs = cfg.setdefault("ProxyConfigs", [])
     target_host = pb_cfg.get("proxy_host", "127.0.0.1")
     target_port = str(pb_cfg.get("proxy_port", "10808"))
 
     if not p_configs:
         p_configs.append({
             "Id": 1,
-            "Name": "Pi-Germany",
+            "Name": "Gateway-Proxy",
             "Type": "SOCKS5",
             "Host": target_host,
             "Port": target_port,
@@ -561,15 +882,15 @@ def enforce_proxybridge_profile():
         updated = True
     else:
         p = p_configs[0]
-        if p.get('Host') != target_host or str(p.get('Port')) != target_port or p.get('Type') != 'SOCKS5':
-            p['Host'] = target_host
-            p['Port'] = target_port
-            p['Type'] = 'SOCKS5'
-            p['SendDomainToProxy'] = True
+        if p.get("Host") != target_host or str(p.get("Port")) != target_port or p.get("Type") != "SOCKS5":
+            p["Host"] = target_host
+            p["Port"] = target_port
+            p["Type"] = "SOCKS5"
+            p["SendDomainToProxy"] = True
             updated = True
 
-    rules = cfg.setdefault('ProxyRules', [])
-    ag_rule = next((r for r in rules if 'antigravity' in r.get('ProcessName', '').lower()), None)
+    rules = cfg.setdefault("ProxyRules", [])
+    ag_rule = next((r for r in rules if "antigravity" in r.get("ProcessName", "").lower()), None)
     if not ag_rule:
         rules.append({
             "Name": "AGRule",
@@ -585,12 +906,12 @@ def enforce_proxybridge_profile():
         })
         updated = True
     else:
-        if ag_rule.get('IsEnabled') is not False or ag_rule.get('LocalhostViaProxy') is not False:
-            ag_rule['IsEnabled'] = False
-            ag_rule['LocalhostViaProxy'] = False
+        if ag_rule.get("IsEnabled") is not False or ag_rule.get("LocalhostViaProxy") is not False:
+            ag_rule["IsEnabled"] = False
+            ag_rule["LocalhostViaProxy"] = False
             updated = True
 
-    lr_rule = next((r for r in rules if 'language_server' in r.get('ProcessName', '').lower()), None)
+    lr_rule = next((r for r in rules if "language_server" in r.get("ProcessName", "").lower()), None)
     if not lr_rule:
         rules.append({
             "Name": "LRAG",
@@ -606,18 +927,18 @@ def enforce_proxybridge_profile():
         })
         updated = True
     else:
-        if lr_rule.get('IsEnabled') is not True or lr_rule.get('LocalhostViaProxy') is not False or lr_rule.get('ProxyConfigId') != 1:
-            lr_rule['IsEnabled'] = True
-            lr_rule['LocalhostViaProxy'] = False
-            lr_rule['ProxyConfigId'] = 1
+        if lr_rule.get("IsEnabled") is not True or lr_rule.get("LocalhostViaProxy") is not False or lr_rule.get("ProxyConfigId") != 1:
+            lr_rule["IsEnabled"] = True
+            lr_rule["LocalhostViaProxy"] = False
+            lr_rule["ProxyConfigId"] = 1
             updated = True
 
     pb_running = check_process_running("ProxyBridge.exe")
     if updated or not pb_running:
-        with open(pb_path, 'w', encoding='utf-8') as f:
+        with open(pb_path, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2)
         import subprocess
-        subprocess.run(['powershell', '-Command', 'Stop-Process -Name ProxyBridge -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 400; Start-Process "C:\\Program Files\\ProxyBridge\\ProxyBridge.exe" -ArgumentList "--minimized" -ErrorAction SilentlyContinue'], capture_output=True)
+        subprocess.run(["powershell", "-Command", 'Stop-Process -Name ProxyBridge -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 400; Start-Process "C:\\Program Files\\ProxyBridge\\ProxyBridge.exe" -ArgumentList "--minimized" -ErrorAction SilentlyContinue'], capture_output=True)
         return True, "Профиль обновлен и ProxyBridge перезапущен (LRAG=вкл, AGRule=выкл)"
     return False, "ProxyBridge уже в эталонном состоянии (LRAG=вкл, AGRule=выкл)"
 
@@ -732,68 +1053,39 @@ def run_self_repair():
     })
     return logs
 
-# Chat & AI Integration
-def load_chat_config():
-    config = {"api_key": "", "model": "gemini-2.5-flash"}
-    if os.path.exists(CHAT_CONFIG_FILE):
-        try:
-            with open(CHAT_CONFIG_FILE, "r", encoding="utf-8") as f:
-                saved = json.load(f)
-                config.update(saved)
-        except Exception:
-            pass
-    env_key = os.environ.get("GEMINI_API_KEY", "").strip()
-    if not config.get("api_key") and env_key:
-        config["api_key"] = env_key
-    return config
-
-def save_chat_config(api_key, model="gemini-2.5-flash"):
-    cfg = load_chat_config()
-    if api_key is not None:
-        cfg["api_key"] = api_key.strip()
-    if model:
-        cfg["model"] = model.strip()
-    with open(CHAT_CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, indent=2)
-    return cfg
-
-def get_context_document():
-    if os.path.exists(CONTEXT_FILE):
-        try:
-            with open(CONTEXT_FILE, "r", encoding="utf-8") as f:
-                return f.read()
-        except Exception:
-            pass
-    return "Файл контекста ANTIGRAVITY_EMERGENCY_CONTEXT.md недоступен на диске."
-
 def execute_emergency_command(cmd_text):
     cmd = cmd_text.strip().lower()
-    if cmd in ["/repair", "/fix"]:
+    if cmd == "/repair":
         logs = run_self_repair()
-        res = "### Результат экстренного восстановления\n\n"
-        for item in logs:
-            icon = "✓" if item["status"] == "ok" else ("▲" if item["status"] == "warning" else "✕")
-            res += f"- **[{icon}] {item['step']}**: {item['msg']}\n"
-        return res
+        res_lines = ["### Результат восстановления:"]
+        for l in logs:
+            mark = "✓" if l["status"] == "ok" else "▲"
+            res_lines.append(f"- {mark} **{l['step']}:** {l['msg']}")
+        return "\n".join(res_lines)
 
     elif cmd == "/status":
         with telemetry_lock:
             snap = json.loads(json.dumps(telemetry_data))
-        v = snap["bypasses"].get("vless", {})
-        z = snap["bypasses"].get("zapret", {})
-        pi = snap["pi_hardware"]
-        mt = snap["mikrotik_hardware"]
+        yt = snap["bypasses"].get("zapret", {})
+        vless = snap["bypasses"].get("vless", {})
+        pi = snap.get("pi_hardware", {})
+        mt = snap.get("mikrotik_hardware", {})
         return (
-            "### Состояние сетевой инфраструктуры\n\n"
-            f"- **MikroTik**: Загрузка CPU {mt.get('cpu_load', 0)}%, ОЗУ {mt.get('ram_used_mb', 0)}MB / {mt.get('ram_total_mb', 0)}MB (Аптайм: {mt.get('uptime', 'N/A')})\n"
-            f"- **Шлюз Linux**: {pi.get('temperature', 0)}°C, Нагрузка: {pi.get('cpu_load', '0')}, ОЗУ: {pi.get('ram_percent', 0)}% (Аптайм: {pi.get('uptime', 'N/A')})\n"
-            f"- **Службы**: `{', '.join([f'{k}:{v}' for k, v in pi.get('services', {}).items()])}`\n"
-            f"- **VLESS Reality**: {v.get('status', 'unknown')} | IP: `{v.get('external_ip', 'unknown')}` | Пинг: {v.get('latency', 0)} ms\n"
-            f"- **ProxyBridge**: {v.get('proxybridge_status', 'unknown')}\n"
-            f"- **YouTube Zapret**: {z.get('youtube_status', 'unknown')} ({z.get('youtube_latency', 0)} ms, HTTP {z.get('youtube_code', 0)})\n"
+            "### Сводка состояния сети\n\n"
+            f"- **YouTube DPI:** `{yt.get('status', 'unknown')}` ({yt.get('youtube_latency', 0)} ms, `{yt.get('mode', 'ALT11')}`)\n"
+            f"- **VLESS Reality:** `{vless.get('status', 'unknown')}` ({vless.get('latency', 0)} ms, IP: `{vless.get('external_ip', '--')}`)\n"
+            f"- **ProxyBridge:** `{vless.get('proxybridge_status', '--')}`\n"
+            f"- **Шлюз Linux:** Температура `{pi.get('temperature', 0)}°C`, Load `{pi.get('cpu_load', 0)}`, Аптайм `{pi.get('uptime', '--')}`\n"
+            f"- **Роутер:** CPU `{mt.get('cpu_load', 0)}%`, Свободно RAM `{mt.get('ram_used_mb', 0)} MB`\n"
         )
 
-    elif cmd in ["/test-ai", "/test-gemini"]:
+    elif cmd == "/wol":
+        mac = APP_CONFIG.get("wol", {}).get("default_mac", "")
+        bip = APP_CONFIG.get("wol", {}).get("broadcast_ip", "255.255.255.255")
+        ok, msg = send_wol(mac, bip)
+        return f"{'✓' if ok else '✕'} **Wake-on-LAN:** {msg}"
+
+    elif cmd == "/test-ai":
         ok, lat, code = test_cloudcode_api()
         if ok:
             return f"✓ **Google CloudCode / Gemini Backend ДОСТУПЕН**\n- Задержка: `{lat} ms`\n- HTTP статус: `{code}` (штатный ответ CloudCode API)\n- Маршрут: через SOCKS5-туннель шлюза."
@@ -836,6 +1128,7 @@ def execute_emergency_command(cmd_text):
             "| :--- | :--- |\n"
             "| `/repair` | Полная экстренная починка всех узлов |\n"
             "| `/status` | Сводка телеметрии в реальном времени |\n"
+            "| `/wol` | Отправка magic packet для включения ПК |\n"
             "| `/test-ai` | Проверка связи с Google CloudCode API |\n"
             "| `/fix-pb` | Восстановление правил ProxyBridge |\n"
             "| `/fix-win` | Сброс системного прокси Windows |\n"
@@ -883,6 +1176,7 @@ def offline_diagnostic_reply(user_msg):
         "Телеметрия сети собрана. Вы можете:\n"
         "- Нажать кнопку **«Починить всё»** или отправить команду `/repair`\n"
         "- Проверить доступность серверов Google командой `/test-ai`\n"
+        "- Разбудить ПК по сети командой `/wol`\n"
         "- Посмотреть все команды с помощью `/help`\n\n"
         "*Совет:* Чтобы общаться в режиме свободного диалога через живую модель, укажите свой **Gemini API Key** в настройках (кнопка параметров в шапке чата)."
     )
@@ -937,7 +1231,9 @@ async def handle_config(request):
         "app": APP_CONFIG.get("app", {}),
         "nodes": APP_CONFIG.get("nodes", []),
         "services": {k: {"enabled": v.get("enabled", True), "name": v.get("name", k)} for k, v in APP_CONFIG.get("services", {}).items()},
-        "collectors": {k: {"enabled": v.get("enabled", False)} for k, v in APP_CONFIG.get("collectors", {}).items()}
+        "collectors": {k: {"enabled": v.get("enabled", False)} for k, v in APP_CONFIG.get("collectors", {}).items()},
+        "service_matrix": APP_CONFIG.get("service_matrix", []),
+        "wol": {"default_mac": APP_CONFIG.get("wol", {}).get("default_mac", "")}
     }
     return web.json_response(safe_cfg)
 
@@ -957,6 +1253,51 @@ async def handle_repair(request):
     all_ok = all(l.get("status") in ["ok", "warning"] for l in logs)
     add_log("Восстановление завершено успешно" if all_ok else "Восстановление завершено с предупреждениями", "success" if all_ok else "error")
     return web.json_response({"success": all_ok, "logs": logs})
+
+async def handle_watchdog_toggle(request):
+    with telemetry_lock:
+        cur = telemetry_data["watchdog"]["enabled"]
+        telemetry_data["watchdog"]["enabled"] = not cur
+        new_state = telemetry_data["watchdog"]["enabled"]
+    add_log(f"Watchdog {'включен' if new_state else 'отключен'} пользователем", "info")
+    return web.json_response({"enabled": new_state})
+
+async def handle_wol(request):
+    try:
+        body = await request.json() if request.can_read_body else {}
+        mac = body.get("mac") or APP_CONFIG.get("wol", {}).get("default_mac", "04:92:26:C2:9F:ED")
+        bip = body.get("broadcast_ip") or APP_CONFIG.get("wol", {}).get("broadcast_ip", "192.168.88.255")
+        port = int(body.get("port") or APP_CONFIG.get("wol", {}).get("port", 9))
+        
+        ok, msg = send_wol(mac, bip, port)
+        add_log(f"Wake-on-LAN: {msg}", "info" if ok else "error")
+        return web.json_response({"success": ok, "message": msg, "target_mac": mac})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+async def handle_service_restart(request):
+    try:
+        body = await request.json()
+        svc_name = body.get("service", "").strip()
+        if svc_name not in ["zapret", "xray", "tg-ws-proxy"]:
+            return web.json_response({"error": "Invalid service name"}, status=400)
+        
+        linux_cfg = APP_CONFIG.get("collectors", {}).get("linux_ssh", {})
+        host = linux_cfg.get("host")
+        if not host:
+            return web.json_response({"error": "Linux gateway host not configured"}, status=400)
+        
+        c = paramiko.SSHClient()
+        c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        c.connect(host, username=linux_cfg.get("user", "root"), password=linux_cfg.get("password", ""), timeout=3)
+        stdin, stdout, stderr = c.exec_command(f"sudo systemctl restart {svc_name}")
+        exit_code = stdout.channel.recv_exit_status()
+        c.close()
+        
+        add_log(f"Служба {svc_name} перезапущена по запросу (код: {exit_code})", "info")
+        return web.json_response({"success": exit_code == 0, "service": svc_name})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
 
 async def handle_chat(request):
     try:
@@ -995,7 +1336,7 @@ async def handle_chat(request):
                     "ИНСТРУКЦИИ:\n"
                     "1. Отвечай кратко, инженерно точно и строго по делу на русском языке в формате Markdown.\n"
                     "2. Если пользователь жалуется на 'модель недоступна', всегда проверяй: не включен ли случайно AGRule для Antigravity.exe (должен быть выключен!), запущен ли ProxyBridge, активен ли LRAG для language_server.exe, и работает ли туннель VLESS Reality.\n"
-                    "3. Ты можешь предлагать пользователю выполнить команды: /repair, /status, /test-ai, /fix-pb, /fix-win."
+                    "3. Ты можешь предлагать пользователю выполнить команды: /repair, /status, /wol, /test-ai, /fix-pb, /fix-win."
                 )
 
                 messages = list(history)
@@ -1054,6 +1395,9 @@ def run_server():
     app.router.add_get("/api/status", handle_status)
     app.router.add_post("/api/refresh", handle_refresh)
     app.router.add_post("/api/repair", handle_repair)
+    app.router.add_post("/api/watchdog/toggle", handle_watchdog_toggle)
+    app.router.add_post("/api/wol", handle_wol)
+    app.router.add_post("/api/service/restart", handle_service_restart)
     app.router.add_post("/api/chat", handle_chat)
     app.router.add_get("/api/chat/config", handle_chat_config)
     app.router.add_post("/api/chat/config", handle_chat_config)
@@ -1062,6 +1406,8 @@ def run_server():
     
     t = threading.Thread(target=telemetry_worker, daemon=True)
     t.start()
+
+    tg_bot.start()
 
     srv_port = APP_CONFIG.get("app", {}).get("port", 8888)
     srv_host = APP_CONFIG.get("app", {}).get("host", "127.0.0.1")

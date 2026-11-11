@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  netpulse:
+    build: .
+    container_name: netpulse
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./.env:/app/.env:ro
+      - ./chat_config.json:/app/chat_config.json
+    environment:
+      - PYTHONUNBUFFERED=1

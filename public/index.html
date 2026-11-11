@@ -24,9 +24,6 @@
       --text-dim: #4c4c4c;
       --text-inverse: #000000;
       
-      --accent-solid: #ffffff;
-      --accent-dim: #666666;
-      
       --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
     }
@@ -43,7 +40,6 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* Layout Container */
     .app-container {
       max-width: 1440px;
       margin: 0 auto;
@@ -105,6 +101,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      flex-wrap: wrap;
     }
 
     .timer-pill {
@@ -205,7 +202,6 @@
       border: 1px solid var(--border);
       border-radius: 3px;
       padding: 12px 14px;
-      position: relative;
       display: flex;
       flex-direction: column;
       gap: 4px;
@@ -249,6 +245,7 @@
       height: 6px;
       border-radius: 50%;
       display: inline-block;
+      flex-shrink: 0;
     }
     .status-dot.online {
       background: #ffffff;
@@ -349,7 +346,7 @@
 
     .val-dim { color: var(--text-muted); }
 
-    /* Progress Bars (Monochrome) */
+    /* Progress Bars */
     .progress-bar-wrap {
       width: 100%;
       height: 4px;
@@ -412,6 +409,24 @@
       border-color: var(--border-focus);
     }
 
+    .chip-btn {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      background: #111111;
+      border: 1px solid var(--border);
+      color: #aaaaaa;
+      padding: 4px 9px;
+      border-radius: 2px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .chip-btn:hover {
+      background: #1a1a1a;
+      border-color: var(--border-focus);
+      color: #ffffff;
+    }
+
     /* Charts Section */
     .chart-container {
       height: 180px;
@@ -419,7 +434,7 @@
       margin-top: 4px;
     }
 
-    /* Log Box (Terminal Style) */
+    /* Log Box */
     .log-box {
       background: #050505;
       border: 1px solid var(--border);
@@ -450,7 +465,7 @@
     .log-warning { color: #888888; }
     .log-error { color: #555555; text-decoration: underline; }
 
-    /* Modal Backdrop */
+    /* Modals & Drawers */
     .modal-backdrop {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -524,7 +539,6 @@
       border-radius: 3px;
     }
 
-    /* Drawer Backdrop & Panel */
     .drawer-backdrop {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -583,24 +597,6 @@
       border-bottom: 1px solid var(--border);
       overflow-x: auto;
       background: #050505;
-    }
-
-    .chip-btn {
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      background: #111111;
-      border: 1px solid var(--border);
-      color: #aaaaaa;
-      padding: 4px 9px;
-      border-radius: 2px;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: all 0.15s ease;
-    }
-    .chip-btn:hover {
-      background: #1a1a1a;
-      border-color: var(--border-focus);
-      color: #ffffff;
     }
 
     .chat-body {
@@ -680,7 +676,6 @@
       border-color: var(--border-focus);
     }
 
-    /* Toast Notification */
     .toast {
       position: fixed;
       bottom: 24px;
@@ -720,6 +715,14 @@
         </div>
       </div>
       <div class="controls">
+        <button class="btn-secondary" id="btn-watchdog" onclick="toggleWatchdog()" title="Автоматическое восстановление эталона при сбоях">
+          <span class="status-dot online" id="dot-watchdog"></span>
+          <span>Автохилинг: <strong id="val-watchdog-state">ВКЛ</strong></span>
+        </button>
+        <button class="btn-secondary" id="btn-wol-pc" onclick="triggerWol()" title="Отправить Magic Packet (Wake-on-LAN) на основной ПК">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10"/></svg>
+          Разбудить ПК (WOL)
+        </button>
         <div class="timer-pill" id="auto-timer">Обновление: 7с</div>
         <button class="btn-secondary" id="btn-manual-refresh" title="Опросить состояние сети прямо сейчас">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
@@ -821,6 +824,17 @@
       </div>
     </div>
 
+    <!-- Service Health & DPI Matrix -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-head">
+        <div class="card-title">Матрица проверки сервисов и обхода DPI</div>
+        <span class="brand-badge" id="matrix-summary">Мониторинг 5 сервисов</span>
+      </div>
+      <div class="topology-grid" id="service-matrix-container">
+        <!-- Injected dynamically -->
+      </div>
+    </div>
+
     <!-- Row 2: Hardware Telemetry -->
     <div class="grid-2">
       <!-- Linux / Pi Gateway -->
@@ -870,6 +884,12 @@
             <!-- Dynamically populated -->
           </div>
         </div>
+
+        <div style="display: flex; gap: 8px; border-top: 1px solid var(--border); padding-top: 10px;">
+          <button class="chip-btn" onclick="restartService('zapret')">Рестарт Zapret</button>
+          <button class="chip-btn" onclick="restartService('xray')">Рестарт Xray</button>
+          <button class="chip-btn" onclick="restartService('tg-ws-proxy')">Рестарт TG Proxy</button>
+        </div>
       </div>
 
       <!-- Router (MikroTik) -->
@@ -904,10 +924,34 @@
           <span class="metric-val" id="val-mt-e3">--</span>
         </div>
 
-        <div class="metric-row">
-          <span class="metric-label">FastTrack & Mangle</span>
-          <span class="metric-val val-dim">GGC Dynamic + Discord</span>
+        <div style="border-top: 1px solid var(--border); padding-top: 10px; margin-top: 2px;">
+          <div style="font-size: 0.74rem; color: var(--text-muted); font-family: var(--mono); margin-bottom: 6px;">Реальный трафик интерфейсов:</div>
+          <div style="display: flex; flex-direction: column; gap: 5px; font-family: var(--mono); font-size: 0.75rem;">
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-muted);">ether1 (WAN):</span>
+              <span id="traffic-ether1">↓ -- ↑ --</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-muted);">ether2 (PC):</span>
+              <span id="traffic-ether2">↓ -- ↑ --</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-muted);">ether3 (Gateway):</span>
+              <span id="traffic-ether3">↓ -- ↑ --</span>
+            </div>
+          </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Network Clients & DHCP Leases -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-head">
+        <div class="card-title">Устройства локальной сети (DHCP Leases)</div>
+        <span class="brand-badge" id="devices-count">Устройств: 0</span>
+      </div>
+      <div class="topology-grid" id="network-devices-container">
+        <!-- Dynamically populated from /api/status.network_devices -->
       </div>
     </div>
 
@@ -981,6 +1025,7 @@
     <div class="chat-chips">
       <button class="chip-btn" onclick="sendQuickCommand('/repair')">/repair</button>
       <button class="chip-btn" onclick="sendQuickCommand('/status')">/status</button>
+      <button class="chip-btn" onclick="sendQuickCommand('/wol')">/wol</button>
       <button class="chip-btn" onclick="sendQuickCommand('/test-ai')">/test-ai</button>
       <button class="chip-btn" onclick="sendQuickCommand('/fix-pb')">/fix-pb</button>
       <button class="chip-btn" onclick="sendQuickCommand('/context')">/context</button>
@@ -1190,7 +1235,66 @@
       }
     }
 
+    async function toggleWatchdog() {
+      try {
+        const res = await fetch('/api/watchdog/toggle', { method: 'POST' });
+        const data = await res.json();
+        const dot = document.getElementById('dot-watchdog');
+        const stateEl = document.getElementById('val-watchdog-state');
+        dot.className = `status-dot ${data.enabled ? 'online' : 'offline'}`;
+        stateEl.textContent = data.enabled ? 'ВКЛ' : 'ВЫКЛ';
+        showToast(data.enabled ? '✓ Автохилинг активирован' : '○ Автохилинг отключен');
+      } catch (e) {
+        showToast('Ошибка переключения автохилинга');
+      }
+    }
+
+    async function triggerWol(targetMac) {
+      try {
+        const payload = targetMac ? { mac: targetMac } : {};
+        const res = await fetch('/api/wol', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        showToast(data.success ? `✓ ${data.message}` : `Ошибка WOL: ${data.message}`);
+      } catch (e) {
+        showToast('Сбой отправки WOL-пакета');
+      }
+    }
+
+    async function restartService(svcName) {
+      showToast(`Перезапуск ${svcName}...`);
+      try {
+        const res = await fetch('/api/service/restart', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ service: svcName })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`✓ Служба ${svcName} перезапущена`);
+          fetchStatus();
+        } else {
+          showToast(`Ошибка перезапуска ${svcName}`);
+        }
+      } catch (e) {
+        showToast('Сбой SSH при перезапуске');
+      }
+    }
+
     function updateUI(data) {
+      // Watchdog state
+      if (data.watchdog) {
+        const dot = document.getElementById('dot-watchdog');
+        const stateEl = document.getElementById('val-watchdog-state');
+        if (dot && stateEl) {
+          dot.className = `status-dot ${data.watchdog.enabled ? 'online' : 'offline'}`;
+          stateEl.textContent = data.watchdog.enabled ? 'ВКЛ' : 'ВЫКЛ';
+        }
+      }
+
       // Topology nodes
       if (data.nodes) {
         for (const [nid, ninfo] of Object.entries(data.nodes)) {
@@ -1204,6 +1308,65 @@
             const latStr = ninfo.latency > 0 ? `${ninfo.latency} ms` : role;
             meta.innerHTML = `<span>${role}</span><span style="color: #ffffff;">${latStr}</span>`;
           }
+        }
+      }
+
+      // Service Matrix
+      if (data.service_matrix) {
+        const mCont = document.getElementById('service-matrix-container');
+        if (mCont) {
+          mCont.innerHTML = '';
+          for (const [sid, item] of Object.entries(data.service_matrix)) {
+            const el = document.createElement('div');
+            el.className = 'node-card';
+            const isOk = item.status === 'online';
+            el.innerHTML = `
+              <div class="node-top">
+                <span class="node-name">${item.name}</span>
+                <span class="status-dot ${isOk ? 'online' : 'offline'}"></span>
+              </div>
+              <div class="node-ip">${item.target}</div>
+              <div class="node-meta">
+                <span style="text-transform: uppercase;">[${item.route}]</span>
+                <span style="color: #ffffff; font-weight: 500;">${item.latency > 0 ? item.latency + ' ms' : 'Fail'}</span>
+              </div>
+            `;
+            mCont.appendChild(el);
+          }
+        }
+      }
+
+      // Live Traffic Rates
+      if (data.mikrotik_traffic) {
+        const t = data.mikrotik_traffic;
+        if (t.ether1) document.getElementById('traffic-ether1').textContent = `↓ ${t.ether1.rx}  ↑ ${t.ether1.tx}`;
+        if (t.ether2) document.getElementById('traffic-ether2').textContent = `↓ ${t.ether2.rx}  ↑ ${t.ether2.tx}`;
+        if (t.ether3) document.getElementById('traffic-ether3').textContent = `↓ ${t.ether3.rx}  ↑ ${t.ether3.tx}`;
+      }
+
+      // Network Devices (DHCP)
+      if (data.network_devices) {
+        const devCont = document.getElementById('network-devices-container');
+        const countBadge = document.getElementById('devices-count');
+        if (countBadge) countBadge.textContent = `Устройств: ${data.network_devices.length}`;
+        if (devCont) {
+          devCont.innerHTML = '';
+          data.network_devices.forEach(dev => {
+            const el = document.createElement('div');
+            el.className = 'node-card';
+            el.innerHTML = `
+              <div class="node-top">
+                <span class="node-name">${dev.hostname}</span>
+                <button class="chip-btn" style="padding: 2px 6px; font-size: 0.68rem;" onclick="triggerWol('${dev.mac}')">WOL</button>
+              </div>
+              <div class="node-ip">${dev.ip}</div>
+              <div class="node-meta">
+                <span>${dev.mac}</span>
+                <span style="color: #ffffff;">${dev.status}</span>
+              </div>
+            `;
+            devCont.appendChild(el);
+          });
         }
       }
 
