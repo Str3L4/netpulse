@@ -10,23 +10,22 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --bg: #090c13;
-      --surface: #101522;
-      --surface-elevated: #161c2c;
-      --border: #1e2638;
-      --border-focus: #3b4763;
-      --text: #f1f5f9;
-      --text-muted: #828ea2;
-      --text-dim: #546074;
+      --bg: #000000;
+      --surface: #0a0a0a;
+      --surface-elevated: #111111;
+      --surface-hover: #181818;
       
-      --success: #10b981;
-      --success-subtle: rgba(16, 185, 129, 0.12);
-      --warning: #f59e0b;
-      --warning-subtle: rgba(245, 158, 11, 0.12);
-      --danger: #ef4444;
-      --danger-subtle: rgba(239, 68, 68, 0.12);
-      --accent: #38bdf8;
-      --accent-subtle: rgba(56, 189, 248, 0.1);
+      --border: #202020;
+      --border-subtle: #141414;
+      --border-focus: #3a3a3a;
+      
+      --text: #ffffff;
+      --text-muted: #888888;
+      --text-dim: #4c4c4c;
+      --text-inverse: #000000;
+      
+      --accent-solid: #ffffff;
+      --accent-dim: #666666;
       
       --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
@@ -41,7 +40,7 @@
       min-height: 100vh;
       padding: 24px 32px 48px;
       line-height: 1.5;
-      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+      -webkit-font-smoothing: antialiased;
     }
 
     /* Layout Container */
@@ -50,7 +49,7 @@
       margin: 0 auto;
     }
 
-    /* Header */
+    /* Header Bar */
     header {
       display: flex;
       justify-content: space-between;
@@ -65,21 +64,21 @@
     .brand {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 14px;
     }
 
     .brand-mark {
       width: 12px;
       height: 12px;
-      background: var(--success);
+      background: #ffffff;
       border-radius: 2px;
     }
 
     .brand-title {
       font-size: 1.15rem;
       font-weight: 700;
-      letter-spacing: -0.01em;
-      color: #fff;
+      letter-spacing: -0.02em;
+      color: #ffffff;
       display: flex;
       align-items: center;
       gap: 10px;
@@ -93,151 +92,125 @@
       background: var(--surface);
       border: 1px solid var(--border);
       padding: 2px 7px;
-      border-radius: 4px;
+      border-radius: 3px;
     }
 
     .brand-subtitle {
       font-size: 0.8rem;
       color: var(--text-muted);
-      margin-top: 1px;
+      margin-top: 2px;
     }
 
     .controls {
       display: flex;
       align-items: center;
       gap: 10px;
-      flex-wrap: wrap;
     }
 
     .timer-pill {
       font-family: var(--mono);
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       color: var(--text-muted);
       background: var(--surface);
       border: 1px solid var(--border);
       padding: 6px 12px;
-      border-radius: 6px;
+      border-radius: 3px;
+    }
+
+    /* Buttons */
+    .btn-primary {
+      background: #ffffff;
+      color: #000000;
+      border: none;
+      font-weight: 600;
+      font-size: 0.82rem;
+      font-family: var(--sans);
+      padding: 7px 16px;
+      border-radius: 3px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      transition: background 0.15s ease;
+    }
+    .btn-primary:hover {
+      background: #d4d4d4;
     }
 
     .btn-secondary {
       background: var(--surface);
-      color: var(--text);
+      color: #d4d4d4;
       border: 1px solid var(--border);
-      padding: 7px 14px;
-      border-radius: 6px;
-      font-family: var(--sans);
       font-size: 0.82rem;
+      font-family: var(--sans);
       font-weight: 500;
+      padding: 7px 14px;
+      border-radius: 3px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      transition: background 0.15s, border-color 0.15s;
+      gap: 7px;
+      transition: all 0.15s ease;
     }
-
     .btn-secondary:hover {
-      background: var(--surface-elevated);
+      background: var(--surface-hover);
       border-color: var(--border-focus);
+      color: #ffffff;
     }
 
-    .btn-secondary:active {
-      transform: translateY(1px);
-    }
-
-    .btn-primary {
-      background: #1e293b;
-      color: #fff;
-      border: 1px solid #334155;
-      padding: 7px 15px;
-      border-radius: 6px;
-      font-family: var(--sans);
-      font-size: 0.82rem;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      transition: background 0.15s, border-color 0.15s;
-    }
-
-    .btn-primary:hover {
-      background: #334155;
-      border-color: #475569;
-    }
-
-    .btn-repair {
-      background: #b45309;
-      color: #fff;
-      border: 1px solid #d97706;
-      padding: 7px 15px;
-      border-radius: 6px;
-      font-family: var(--sans);
-      font-size: 0.82rem;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      transition: background 0.15s;
-    }
-
-    .btn-repair:hover {
-      background: #d97706;
-    }
-
-    .btn-repair.loading {
-      opacity: 0.6;
-      cursor: wait;
-    }
-
-    /* Topology Bar */
-    .topology-panel {
+    /* Topology Bar / Bus Line */
+    .topology-section {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 4px;
       padding: 16px 20px;
       margin-bottom: 24px;
     }
 
-    .panel-header {
+    .section-head {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 14px;
     }
 
-    .panel-title {
+    .section-title {
       font-size: 0.78rem;
       font-weight: 600;
-      color: var(--text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    .panel-status {
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
       font-family: var(--mono);
-      font-size: 0.75rem;
-      color: var(--success);
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
-    .topology-flow {
+    .section-title::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      background: var(--text-muted);
+      border-radius: 1px;
+    }
+
+    .topology-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 12px;
-      position: relative;
+      gap: 10px;
     }
 
     .node-card {
       background: var(--bg);
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: 3px;
       padding: 12px 14px;
+      position: relative;
       display: flex;
       flex-direction: column;
       gap: 4px;
-      transition: border-color 0.15s;
+      transition: border-color 0.15s ease;
     }
-
     .node-card:hover {
       border-color: var(--border-focus);
     }
@@ -249,52 +222,66 @@
     }
 
     .node-name {
-      font-size: 0.82rem;
+      font-size: 0.84rem;
       font-weight: 600;
-      color: #fff;
+      color: #ffffff;
     }
-
-    .status-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-    }
-    .status-dot.online { background: var(--success); }
-    .status-dot.offline { background: var(--danger); }
-    .status-dot.warning { background: var(--warning); }
 
     .node-ip {
       font-family: var(--mono);
-      font-size: 0.75rem;
+      font-size: 0.74rem;
       color: var(--text-muted);
     }
 
     .node-meta {
       font-family: var(--mono);
       font-size: 0.72rem;
-      color: var(--accent);
-      margin-top: 2px;
+      color: var(--text-dim);
+      margin-top: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
-    /* Grids */
+    /* Monotone Status Dots */
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .status-dot.online {
+      background: #ffffff;
+      box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+    }
+    .status-dot.offline {
+      background: #333333;
+    }
+
+    /* Main Telemetry Grids */
     .grid-3 {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
       margin-bottom: 24px;
     }
 
     .grid-2 {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
       margin-bottom: 24px;
     }
 
+    @media (max-width: 1080px) {
+      .grid-3, .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    /* Monotone Cards */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 4px;
       padding: 18px 20px;
       display: flex;
       flex-direction: column;
@@ -305,32 +292,48 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 12px;
       border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
     }
 
     .card-title {
       font-size: 0.88rem;
       font-weight: 600;
-      color: #fff;
+      color: #ffffff;
+      letter-spacing: -0.01em;
     }
 
+    /* Monotone Badges */
     .badge-status {
       font-family: var(--mono);
-      font-size: 0.7rem;
-      font-weight: 500;
-      padding: 2px 6px;
-      border-radius: 4px;
-      border: 1px solid transparent;
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
-    .badge-ok { background: var(--success-subtle); color: var(--success); border-color: rgba(16, 185, 129, 0.2); }
-    .badge-warn { background: var(--warning-subtle); color: var(--warning); border-color: rgba(245, 158, 11, 0.2); }
-    .badge-err { background: var(--danger-subtle); color: var(--danger); border-color: rgba(239, 68, 68, 0.2); }
+    .badge-ok {
+      background: #ffffff;
+      color: #000000;
+    }
+    .badge-warn {
+      background: transparent;
+      color: #aaaaaa;
+      border: 1px solid #444444;
+    }
+    .badge-err {
+      background: transparent;
+      color: #555555;
+      border: 1px dashed #333333;
+      text-decoration: line-through;
+    }
 
+    /* Metric Rows */
     .metric-row {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: baseline;
       font-size: 0.82rem;
     }
 
@@ -341,28 +344,28 @@
     .metric-val {
       font-family: var(--mono);
       font-weight: 500;
-      color: #fff;
+      color: #ffffff;
     }
 
-    .val-accent { color: var(--accent); }
-    .val-success { color: var(--success); }
+    .val-dim { color: var(--text-muted); }
 
+    /* Progress Bars (Monochrome) */
     .progress-bar-wrap {
       width: 100%;
       height: 4px;
-      background: var(--bg);
+      background: #181818;
       border-radius: 2px;
       overflow: hidden;
-      margin-top: 4px;
+      margin-top: 5px;
     }
 
     .progress-bar-fill {
       height: 100%;
-      background: var(--accent);
-      border-radius: 2px;
+      background: #ffffff;
       transition: width 0.3s ease;
     }
 
+    /* Service Tags */
     .services-tags {
       display: flex;
       flex-wrap: wrap;
@@ -372,100 +375,110 @@
 
     .svc-tag {
       font-family: var(--mono);
-      font-size: 0.7rem;
-      padding: 2px 7px;
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      border-radius: 2px;
       background: var(--bg);
       border: 1px solid var(--border);
-      border-radius: 4px;
+      color: var(--text-dim);
       display: flex;
       align-items: center;
-      gap: 5px;
-      color: var(--text-muted);
+      gap: 6px;
     }
-
     .svc-tag.active {
-      color: var(--text);
+      color: #ffffff;
+      border-color: #383838;
     }
 
     .tg-link-btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      background: var(--surface-elevated);
-      color: var(--text);
-      text-decoration: none;
+      width: 100%;
+      padding: 8px 12px;
+      background: #121212;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: #ffffff;
+      font-family: var(--sans);
       font-size: 0.78rem;
       font-weight: 500;
-      padding: 8px 12px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
+      text-decoration: none;
+      transition: all 0.15s ease;
       margin-top: 4px;
-      transition: background 0.15s, border-color 0.15s;
     }
-    .tg-link-btn:hover { background: #1e2638; border-color: var(--border-focus); }
+    .tg-link-btn:hover {
+      background: #1c1c1c;
+      border-color: var(--border-focus);
+    }
 
-    .chart-box {
-      height: 170px;
-      width: 100%;
+    /* Charts Section */
+    .chart-container {
+      height: 180px;
       position: relative;
+      margin-top: 4px;
     }
 
-    /* Terminal Log */
-    .log-panel {
-      background: #080b10;
+    /* Log Box (Terminal Style) */
+    .log-box {
+      background: #050505;
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 10px 14px;
+      border-radius: 3px;
+      height: 200px;
+      overflow-y: auto;
       font-family: var(--mono);
       font-size: 0.75rem;
-      max-height: 140px;
-      overflow-y: auto;
+      padding: 10px 14px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 5px;
     }
 
     .log-row {
       display: flex;
-      gap: 10px;
+      gap: 12px;
+      line-height: 1.4;
     }
-    .log-time { color: var(--text-dim); }
-    .log-info { color: var(--text); }
-    .log-success { color: var(--success); }
-    .log-warning { color: var(--warning); }
-    .log-error { color: var(--danger); }
 
-    /* Modals & Repair */
+    .log-time {
+      color: var(--text-dim);
+      flex-shrink: 0;
+    }
+
+    .log-info { color: #cccccc; }
+    .log-success { color: #ffffff; font-weight: 500; }
+    .log-warning { color: #888888; }
+    .log-error { color: #555555; text-decoration: underline; }
+
+    /* Modal Backdrop */
     .modal-backdrop {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.65);
-      backdrop-filter: blur(2px);
-      z-index: 1000;
-      display: none;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(4px);
+      display: flex;
       align-items: center;
       justify-content: center;
+      z-index: 1000;
       opacity: 0;
-      transition: opacity 0.15s ease;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
     }
-
     .modal-backdrop.active {
-      display: flex;
       opacity: 1;
+      pointer-events: auto;
     }
 
     .modal-box {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
+      background: #0a0a0a;
+      border: 1px solid var(--border-focus);
+      border-radius: 4px;
       width: 90%;
-      max-width: 520px;
-      padding: 20px;
+      max-width: 580px;
+      padding: 24px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+      gap: 18px;
     }
 
     .modal-head {
@@ -477,187 +490,173 @@
     }
 
     .modal-title {
-      font-size: 0.95rem;
+      font-size: 0.96rem;
       font-weight: 600;
-      color: #fff;
+      color: #ffffff;
     }
 
     .modal-close {
       background: transparent;
       border: none;
       color: var(--text-muted);
+      font-size: 1.2rem;
       cursor: pointer;
-      font-size: 1rem;
-      padding: 4px;
     }
-    .modal-close:hover { color: #fff; }
+    .modal-close:hover { color: #ffffff; }
 
     .repair-steps-list {
       display: flex;
       flex-direction: column;
       gap: 10px;
-      max-height: 280px;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      max-height: 300px;
       overflow-y: auto;
     }
 
-    .repair-step-row {
+    .repair-step-item {
       display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      background: var(--bg);
+      align-items: center;
+      gap: 12px;
+      padding: 9px 12px;
+      background: #111111;
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 10px 12px;
-      font-size: 0.8rem;
+      border-radius: 3px;
     }
 
-    /* Emergency Assistant Drawer */
+    /* Drawer Backdrop & Panel */
     .drawer-backdrop {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: 1200;
-      display: none;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 900;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
     }
-    .drawer-backdrop.active { display: block; }
+    .drawer-backdrop.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
 
     .drawer {
       position: fixed;
-      top: 0; right: 0; bottom: 0;
+      top: 0; right: -480px;
       width: 460px;
-      max-width: 95vw;
-      background: var(--surface);
+      max-width: 100vw;
+      height: 100vh;
+      background: #080808;
       border-left: 1px solid var(--border);
-      box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
-      z-index: 1300;
+      z-index: 950;
       display: flex;
       flex-direction: column;
-      transform: translateX(100%);
-      transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: right 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .drawer.active { transform: translateX(0); }
+    .drawer.active {
+      right: 0;
+    }
 
     .drawer-head {
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: var(--surface-elevated);
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
     }
 
     .drawer-title-group {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
 
     .drawer-title {
-      font-size: 0.88rem;
+      font-size: 0.9rem;
       font-weight: 600;
-      color: #fff;
+      color: #ffffff;
     }
 
     .chat-chips {
-      padding: 8px 12px;
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
       display: flex;
       gap: 6px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
       overflow-x: auto;
+      background: #050505;
     }
-    .chat-chips::-webkit-scrollbar { display: none; }
 
     .chip-btn {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--text-muted);
       font-family: var(--mono);
-      font-size: 0.7rem;
-      padding: 3px 8px;
-      border-radius: 4px;
+      font-size: 0.72rem;
+      background: #111111;
+      border: 1px solid var(--border);
+      color: #aaaaaa;
+      padding: 4px 9px;
+      border-radius: 2px;
       cursor: pointer;
       white-space: nowrap;
+      transition: all 0.15s ease;
     }
     .chip-btn:hover {
-      background: var(--surface-elevated);
-      color: #fff;
+      background: #1a1a1a;
       border-color: var(--border-focus);
+      color: #ffffff;
     }
 
     .chat-body {
       flex: 1;
       overflow-y: auto;
-      padding: 14px 16px;
+      padding: 16px;
       display: flex;
       flex-direction: column;
       gap: 12px;
+      font-size: 0.82rem;
     }
 
     .chat-bubble {
-      max-width: 90%;
       padding: 10px 14px;
-      border-radius: 6px;
-      font-size: 0.82rem;
+      border-radius: 4px;
+      max-width: 90%;
       line-height: 1.5;
     }
-
     .bubble-user {
       align-self: flex-end;
-      background: #1e293b;
-      color: #f8fafc;
-      border: 1px solid #334155;
+      background: #202020;
+      color: #ffffff;
+      border: 1px solid #333333;
     }
-
     .bubble-bot {
       align-self: flex-start;
-      background: var(--bg);
-      color: var(--text);
+      background: #0f0f0f;
+      color: #cccccc;
       border: 1px solid var(--border);
-      width: 96%;
     }
 
-    .bubble-bot code {
+    .chat-bubble code {
       font-family: var(--mono);
-      background: #161c28;
-      padding: 2px 4px;
+      background: #181818;
+      padding: 2px 5px;
+      border-radius: 2px;
+      font-size: 0.76rem;
+      color: #ffffff;
+    }
+
+    .chat-bubble pre {
+      background: #050505;
+      padding: 8px;
       border-radius: 3px;
-      font-size: 0.78rem;
-      color: var(--accent);
-    }
-
-    .bubble-bot pre {
-      background: #080b10;
       border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 8px 10px;
-      margin: 6px 0;
       overflow-x: auto;
+      margin: 6px 0;
       font-family: var(--mono);
       font-size: 0.75rem;
-    }
-
-    .bubble-bot table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 6px 0;
-      font-size: 0.75rem;
-    }
-
-    .bubble-bot th, .bubble-bot td {
-      border: 1px solid var(--border);
-      padding: 5px 8px;
-    }
-
-    .bubble-bot th {
-      background: var(--surface);
-      color: var(--text-muted);
+      color: #e0e0e0;
     }
 
     .chat-footer {
-      padding: 12px 14px;
+      padding: 14px 16px;
       border-top: 1px solid var(--border);
-      background: var(--surface-elevated);
+      background: #050505;
     }
 
     .chat-input-row {
@@ -665,45 +664,48 @@
       gap: 8px;
     }
 
-    .chat-input-row textarea {
+    #chat-textarea {
       flex: 1;
-      background: var(--bg);
+      background: #0f0f0f;
       border: 1px solid var(--border);
-      border-radius: 5px;
-      color: #fff;
+      border-radius: 3px;
+      padding: 8px 12px;
+      color: #ffffff;
       font-family: var(--sans);
       font-size: 0.82rem;
-      padding: 8px 10px;
       resize: none;
       outline: none;
-      height: 38px;
     }
-    .chat-input-row textarea:focus { border-color: var(--border-focus); }
+    #chat-textarea:focus {
+      border-color: var(--border-focus);
+    }
 
+    /* Toast Notification */
     .toast {
       position: fixed;
       bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%) translateY(40px);
-      background: #1e293b;
-      color: #fff;
-      border: 1px solid var(--border-focus);
-      padding: 8px 16px;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      z-index: 2000;
+      right: 24px;
+      background: #ffffff;
+      color: #000000;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 3px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
       opacity: 0;
       pointer-events: none;
+      transform: translateY(8px);
       transition: all 0.2s ease;
+      z-index: 2000;
     }
     .toast.show {
-      transform: translateX(-50%) translateY(0);
       opacity: 1;
+      transform: translateY(0);
     }
   </style>
 </head>
 <body>
-
   <div class="app-container">
     <!-- Header -->
     <header>
@@ -714,7 +716,7 @@
             <span id="app-title">NETPULSE</span>
             <span class="brand-badge" id="app-cidr">192.168.x.x/24</span>
           </div>
-          <div class="brand-subtitle" id="app-subtitle">Сетевой шлюз и мониторинг обхода</div>
+          <div class="brand-subtitle" id="app-subtitle">Сетевой шлюз и телеметрия обхода</div>
         </div>
       </div>
       <div class="controls">
@@ -723,55 +725,55 @@
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
           Обновить
         </button>
-        <button class="btn-secondary" id="btn-open-chat" title="Открыть встроенного ассистента диагностики">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-          Диагностика
-        </button>
-        <button class="btn-repair" id="btn-repair" title="Привести все узлы сети к эталонной конфигурации">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        <button class="btn-primary" id="btn-repair" onclick="startRepairSequence()" title="Восстановить эталонные настройки всех компонентов сети">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
           Починить всё
+        </button>
+        <button class="btn-secondary" id="btn-open-chat" onclick="openChatDrawer()" title="Открыть консоль сетевого ассистента">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Ассистент
         </button>
       </div>
     </header>
 
-    <!-- Topology Panel (Dynamic) -->
-    <div class="topology-panel">
-      <div class="panel-header">
-        <div class="panel-title">Сетевая топология</div>
-        <div class="panel-status" id="topology-status">● Соединение активно</div>
+    <!-- Topology Bus Section -->
+    <div class="topology-section">
+      <div class="section-head">
+        <div class="section-title">Топология сети</div>
+        <span class="brand-badge" id="topology-status">Штатный режим</span>
       </div>
-      <div class="topology-flow" id="topology-flow-container">
-        <!-- Rendered dynamically from config.nodes -->
+      <div class="topology-grid" id="topology-flow-container">
+        <!-- Dynamically populated from config.yaml nodes -->
       </div>
     </div>
 
-    <!-- Row 1: Bypasses & Tunnels -->
+    <!-- Row 1: Bypass & Proxy Services -->
     <div class="grid-3" id="services-grid">
-      <!-- Zapret DPI -->
+      <!-- Zapret DPI Card -->
       <div class="card" id="card-zapret">
         <div class="card-head">
           <div class="card-title">Zapret DPI Bypass</div>
           <span class="badge-status badge-ok" id="badge-zapret">АКТИВЕН</span>
         </div>
         <div class="metric-row">
-          <span class="metric-label">YouTube (Напрямую)</span>
-          <span class="metric-val val-success" id="val-yt-status">204 No Content</span>
+          <span class="metric-label">YouTube HTTP Probe</span>
+          <span class="metric-val" id="val-yt-status">204 OK</span>
         </div>
         <div class="metric-row">
-          <span class="metric-label">Задержка YouTube</span>
-          <span class="metric-val val-accent" id="val-yt-lat">-- ms</span>
+          <span class="metric-label">Задержка потока</span>
+          <span class="metric-val" id="val-yt-lat">-- ms</span>
         </div>
         <div class="metric-row">
-          <span class="metric-label">Режим десинхронизации</span>
-          <span class="metric-val" id="val-yt-mode">ALT11 / Fake-TLS</span>
+          <span class="metric-label">Стратегия десинхронизации</span>
+          <span class="metric-val val-dim" id="val-yt-mode">ALT11 / Fake-TLS</span>
         </div>
         <div class="metric-row">
-          <span class="metric-label">Захват Google Cache (GGC)</span>
-          <span class="metric-val val-success">Включен (Mangle SNI)</span>
+          <span class="metric-label">Шлюз обработки</span>
+          <span class="metric-val">Raspberry Pi NFQUEUE</span>
         </div>
       </div>
 
-      <!-- Xray VLESS -->
+      <!-- VLESS Reality Card -->
       <div class="card" id="card-vless">
         <div class="card-head">
           <div class="card-title">Xray VLESS Reality</div>
@@ -779,23 +781,23 @@
         </div>
         <div class="metric-row">
           <span class="metric-label">Внешний выходной IP</span>
-          <span class="metric-val val-accent" id="val-vpn-ip">--</span>
+          <span class="metric-val" id="val-vpn-ip">--</span>
         </div>
         <div class="metric-row">
-          <span class="metric-label">Задержка VLESS</span>
-          <span class="metric-val val-success" id="val-vpn-lat">-- ms</span>
+          <span class="metric-label">Задержка туннеля</span>
+          <span class="metric-val" id="val-vpn-lat">-- ms</span>
         </div>
         <div class="metric-row">
-          <span class="metric-label">SOCKS5 Шлюз</span>
-          <span class="metric-val" id="val-socks-port">10808</span>
+          <span class="metric-label">Локальный SOCKS5</span>
+          <span class="metric-val" id="val-socks-port">Порт 10808</span>
         </div>
         <div class="metric-row">
-          <span class="metric-label">ProxyBridge (Antigravity)</span>
-          <span class="metric-val val-success" id="val-pb-status">Активен</span>
+          <span class="metric-label">ProxyBridge на ПК</span>
+          <span class="metric-val" id="val-pb-status">Активен (LRAG)</span>
         </div>
       </div>
 
-      <!-- Telegram Proxy -->
+      <!-- Telegram Proxy Card -->
       <div class="card" id="card-telegram">
         <div class="card-head">
           <div class="card-title">Telegram Proxy</div>
@@ -807,11 +809,11 @@
         </div>
         <div class="metric-row">
           <span class="metric-label">Задержка до прокси</span>
-          <span class="metric-val val-success" id="val-tg-lat">-- ms</span>
+          <span class="metric-val" id="val-tg-lat">-- ms</span>
         </div>
         <div class="metric-row">
           <span class="metric-label">Маршрутизация</span>
-          <span class="metric-val">VLESS Трафик</span>
+          <span class="metric-val val-dim">VLESS Трафик</span>
         </div>
         <a href="tg://socks?server=127.0.0.1&port=10808" class="tg-link-btn" id="link-tg-connect" target="_blank">
           Подключить в Telegram
@@ -824,21 +826,21 @@
       <!-- Linux / Pi Gateway -->
       <div class="card" id="card-linux">
         <div class="card-head">
-          <div class="card-title" id="title-gateway">Шлюз обхода (Linux / Pi)</div>
+          <div class="card-title" id="title-gateway">Шлюз обхода (Linux)</div>
           <span class="badge-status badge-ok" id="pi-uptime-badge">Аптайм: --</span>
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: baseline;">
           <div>
             <div style="display: flex; align-items: baseline; gap: 6px;">
-              <span style="font-size: 1.8rem; font-weight: 700; font-family: var(--mono); color: #fff;" id="val-pi-temp">--</span>
+              <span style="font-size: 1.8rem; font-weight: 700; font-family: var(--mono); color: #ffffff;" id="val-pi-temp">--</span>
               <span style="color: var(--text-muted); font-size: 1rem;">°C</span>
             </div>
-            <div style="font-size: 0.75rem; color: var(--text-muted);">Температура SoC</div>
+            <div style="font-size: 0.74rem; color: var(--text-muted); font-family: var(--mono);">Температура SoC</div>
           </div>
           <div style="text-align: right;">
-            <div class="metric-val val-accent" style="font-size: 1rem;" id="val-pi-load">0.05</div>
-            <div style="font-size: 0.75rem; color: var(--text-muted);">Load Average</div>
+            <div class="metric-val" style="font-size: 1.1rem;" id="val-pi-load">0.05</div>
+            <div style="font-size: 0.74rem; color: var(--text-muted); font-family: var(--mono);">Load Average</div>
           </div>
         </div>
 
@@ -863,7 +865,7 @@
         </div>
 
         <div>
-          <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Службы шлюза:</div>
+          <div style="font-size: 0.74rem; color: var(--text-muted); font-family: var(--mono); margin-bottom: 6px;">Службы шлюза:</div>
           <div class="services-tags" id="services-list">
             <!-- Dynamically populated -->
           </div>
@@ -878,8 +880,8 @@
         </div>
 
         <div class="metric-row">
-          <span class="metric-label">Загрузка CPU</span>
-          <span class="metric-val val-success" id="val-mt-cpu">-- %</span>
+          <span class="metric-label">Загрузка процессора</span>
+          <span class="metric-val" id="val-mt-cpu">-- %</span>
         </div>
 
         <div class="metric-row">
@@ -889,65 +891,62 @@
 
         <div class="metric-row">
           <span class="metric-label">Порт ether1 (WAN)</span>
-          <span class="metric-val val-success" id="val-mt-e1">--</span>
+          <span class="metric-val" id="val-mt-e1">--</span>
         </div>
 
         <div class="metric-row">
           <span class="metric-label">Порт ether2 (LAN PC)</span>
-          <span class="metric-val val-success" id="val-mt-e2">--</span>
+          <span class="metric-val" id="val-mt-e2">--</span>
         </div>
 
         <div class="metric-row">
-          <span class="metric-label">Порт ether3 (LAN Gateway)</span>
-          <span class="metric-val val-success" id="val-mt-e3">--</span>
+          <span class="metric-label">Порт ether3 (Gateway)</span>
+          <span class="metric-val" id="val-mt-e3">--</span>
         </div>
 
         <div class="metric-row">
-          <span class="metric-label">Маркировка Mangle</span>
-          <span class="metric-val val-accent">to-zapret (Активно)</span>
+          <span class="metric-label">FastTrack & Mangle</span>
+          <span class="metric-val val-dim">GGC Dynamic + Discord</span>
         </div>
       </div>
     </div>
 
-    <!-- Row 3: Charts -->
+    <!-- Row 3: Telemetry Charts -->
     <div class="grid-2">
       <div class="card">
         <div class="card-head">
-          <div class="card-title">Температура и нагрузка шлюза</div>
+          <div class="card-title">Аппаратные метрики шлюза</div>
+          <span class="brand-badge">Температура & CPU</span>
         </div>
-        <div class="chart-box">
+        <div class="chart-container">
           <canvas id="chart-pi"></canvas>
         </div>
       </div>
 
       <div class="card">
         <div class="card-head">
-          <div class="card-title">Задержки соединений (YouTube vs VPN)</div>
+          <div class="card-title">Задержка обхода трафика (Latency)</div>
+          <span class="brand-badge">YouTube & VPN</span>
         </div>
-        <div class="chart-box">
+        <div class="chart-container">
           <canvas id="chart-latency"></canvas>
         </div>
       </div>
     </div>
 
-    <!-- Row 4: Event Log -->
+    <!-- Row 4: Event Console Log -->
     <div class="card">
       <div class="card-head">
-        <div class="card-title">Журнал событий телеметрии</div>
-        <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--mono);" id="log-count">
-          Записей: 0
-        </div>
+        <div class="card-title">Журнал событий и телеметрии</div>
+        <span class="brand-badge" id="log-count">Записей: 0</span>
       </div>
-      <div class="log-panel" id="log-box">
-        <div class="log-row">
-          <span class="log-time">--:--:--</span>
-          <span class="log-info">Инициализация телеметрии...</span>
-        </div>
+      <div class="log-box" id="log-box">
+        <!-- Dynamically populated -->
       </div>
     </div>
   </div>
 
-  <!-- Repair Modal Backdrop -->
+  <!-- Repair Progress Modal -->
   <div class="modal-backdrop" id="repair-modal">
     <div class="modal-box">
       <div class="modal-head">
@@ -957,8 +956,8 @@
       <div class="repair-steps-list" id="repair-steps-container">
         <!-- Injected dynamically -->
       </div>
-      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 12px;">
-        <div id="repair-summary" style="font-family: var(--mono); font-size: 0.78rem; color: var(--accent);">Ожидание...</div>
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 14px;">
+        <div id="repair-summary" style="font-family: var(--mono); font-size: 0.78rem; color: #ffffff;">Ожидание...</div>
         <button class="btn-secondary" onclick="closeRepairModal()" id="btn-close-repair" style="display: none;">Закрыть</button>
       </div>
     </div>
@@ -973,8 +972,8 @@
         <span class="badge-status badge-warn" id="chat-model-badge">Offline</span>
       </div>
       <div style="display: flex; gap: 6px;">
-        <button class="btn-secondary" style="padding: 4px 8px; font-size: 0.75rem;" id="btn-copy-context" title="Скопировать файл контекста в буфер обмена">Контекст</button>
-        <button class="btn-secondary" style="padding: 4px 8px; font-size: 0.75rem;" id="btn-chat-settings" title="Настройки API-ключа Gemini">Параметры</button>
+        <button class="btn-secondary" style="padding: 4px 8px; font-size: 0.74rem;" id="btn-copy-context" title="Скопировать файл контекста в буфер обмена">Контекст</button>
+        <button class="btn-secondary" style="padding: 4px 8px; font-size: 0.74rem;" id="btn-chat-settings" title="Настройки API-ключа Gemini">Параметры</button>
         <button class="modal-close" onclick="closeChatDrawer()">✕</button>
       </div>
     </div>
@@ -989,9 +988,9 @@
 
     <div class="chat-body" id="chat-messages">
       <div class="chat-bubble bubble-bot">
-        <div style="font-weight: 600; margin-bottom: 4px;">Сетевой ассистент готов к работе.</div>
+        <div style="font-weight: 600; margin-bottom: 4px; color: #ffffff;">Сетевой ассистент готов к работе.</div>
         <div style="color: var(--text-muted); font-size: 0.8rem;">
-          Если соединение нарушено или Antigravity не отвечает — нажмите <code>/repair</code> для восстановления или <code>/test-ai</code> для проверки связи с серверами Google.
+          Если связь нарушена или Antigravity не отвечает — нажмите <code>/repair</code> для восстановления или <code>/test-ai</code> для проверки связи с серверами Google.
         </div>
       </div>
     </div>
@@ -1014,12 +1013,12 @@
       <div style="display: flex; flex-direction: column; gap: 12px; font-size: 0.82rem;">
         <div>
           <label style="display: block; margin-bottom: 4px; color: var(--text-muted);">Google Gemini API Key:</label>
-          <input type="password" id="input-api-key" placeholder="AIzaSy..." style="width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: 7px 10px; color: #fff; font-family: var(--mono); font-size: 0.8rem; outline: none;">
+          <input type="password" id="input-api-key" placeholder="AIzaSy..." style="width: 100%; background: #000000; border: 1px solid var(--border); border-radius: 3px; padding: 7px 10px; color: #ffffff; font-family: var(--mono); font-size: 0.8rem; outline: none;">
           <div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 3px;">Ключ хранится локально в <code>chat_config.json</code>.</div>
         </div>
         <div>
           <label style="display: block; margin-bottom: 4px; color: var(--text-muted);">Модель:</label>
-          <select id="select-model" style="width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: 7px 10px; color: #fff; font-family: var(--sans); font-size: 0.8rem; outline: none;">
+          <select id="select-model" style="width: 100%; background: #000000; border: 1px solid var(--border); border-radius: 3px; padding: 7px 10px; color: #ffffff; font-family: var(--sans); font-size: 0.8rem; outline: none;">
             <option value="gemini-2.5-flash">gemini-2.5-flash (Рекомендуется)</option>
             <option value="gemini-1.5-flash">gemini-1.5-flash</option>
             <option value="gemini-2.5-pro">gemini-2.5-pro</option>
@@ -1036,14 +1035,29 @@
   <div id="toast-notify" class="toast"></div>
 
   <script>
-    // Chart Configurations (Clean Slate Theme)
+    // Monotone Chart Defaults
     const chartDefaults = {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#828ea2', font: { family: 'Inter', size: 11 } } } },
+      plugins: {
+        legend: {
+          labels: {
+            color: '#888888',
+            font: { family: 'Inter', size: 11 },
+            boxWidth: 12,
+            boxHeight: 2
+          }
+        }
+      },
       scales: {
-        x: { grid: { color: '#161c28' }, ticks: { color: '#546074', font: { family: 'JetBrains Mono', size: 10 } } },
-        y: { grid: { color: '#161c28' }, ticks: { color: '#546074', font: { family: 'JetBrains Mono', size: 10 } } }
+        x: {
+          grid: { color: '#161616' },
+          ticks: { color: '#555555', font: { family: 'JetBrains Mono', size: 10 } }
+        },
+        y: {
+          grid: { color: '#161616' },
+          ticks: { color: '#555555', font: { family: 'JetBrains Mono', size: 10 } }
+        }
       }
     };
 
@@ -1053,8 +1067,23 @@
       data: {
         labels: [],
         datasets: [
-          { label: 'Температура (°C)', data: [], borderColor: '#38bdf8', backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 1 },
-          { label: 'CPU Load (x10)', data: [], borderColor: '#f59e0b', backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 1 }
+          {
+            label: 'Температура (°C)',
+            data: [],
+            borderColor: '#ffffff',
+            backgroundColor: 'transparent',
+            borderWidth: 1.5,
+            pointRadius: 1
+          },
+          {
+            label: 'CPU Load (x10)',
+            data: [],
+            borderColor: '#666666',
+            borderDash: [4, 4],
+            backgroundColor: 'transparent',
+            borderWidth: 1.5,
+            pointRadius: 1
+          }
         ]
       },
       options: chartDefaults
@@ -1066,8 +1095,23 @@
       data: {
         labels: [],
         datasets: [
-          { label: 'YouTube (Zapret, ms)', data: [], borderColor: '#10b981', backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 1 },
-          { label: 'VLESS Reality (VPN, ms)', data: [], borderColor: '#a855f7', backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 1 }
+          {
+            label: 'YouTube (Zapret, ms)',
+            data: [],
+            borderColor: '#ffffff',
+            backgroundColor: 'transparent',
+            borderWidth: 1.5,
+            pointRadius: 1
+          },
+          {
+            label: 'VLESS Reality (ms)',
+            data: [],
+            borderColor: '#777777',
+            borderDash: [4, 4],
+            backgroundColor: 'transparent',
+            borderWidth: 1.5,
+            pointRadius: 1
+          }
         ]
       },
       options: chartDefaults
@@ -1101,17 +1145,21 @@
     function renderTopologyNodes(nodes) {
       const container = document.getElementById('topology-flow-container');
       container.innerHTML = '';
-      nodes.forEach(n => {
+      nodes.forEach((n, idx) => {
         const el = document.createElement('div');
         el.className = 'node-card';
         el.id = `node-${n.id}`;
+        const prefix = String(idx + 1).padStart(2, '0');
         el.innerHTML = `
           <div class="node-top">
             <span class="node-name">${n.name}</span>
             <span class="status-dot online" id="dot-${n.id}"></span>
           </div>
           <div class="node-ip">${n.host || ''}</div>
-          <div class="node-meta" id="meta-${n.id}">${n.role || 'Узел'}</div>
+          <div class="node-meta" id="meta-${n.id}">
+            <span>${n.role || 'Узел'}</span>
+            <span style="color: var(--text-muted); font-size: 0.68rem;">[${prefix}]</span>
+          </div>
         `;
         container.appendChild(el);
       });
@@ -1143,7 +1191,7 @@
     }
 
     function updateUI(data) {
-      // Topology node statuses
+      // Topology nodes
       if (data.nodes) {
         for (const [nid, ninfo] of Object.entries(data.nodes)) {
           const dot = document.getElementById(`dot-${nid}`);
@@ -1152,7 +1200,9 @@
             dot.className = `status-dot ${ninfo.status === 'online' ? 'online' : 'offline'}`;
           }
           if (meta && ninfo.latency !== undefined) {
-            meta.textContent = ninfo.latency > 0 ? `${ninfo.latency} ms` : (ninfo.role || 'Активен');
+            const role = ninfo.role || 'Узел';
+            const latStr = ninfo.latency > 0 ? `${ninfo.latency} ms` : role;
+            meta.innerHTML = `<span>${role}</span><span style="color: #ffffff;">${latStr}</span>`;
           }
         }
       }
@@ -1215,9 +1265,9 @@
         document.getElementById('mt-uptime-badge').textContent = `Аптайм: ${mt.uptime}`;
         document.getElementById('val-mt-cpu').textContent = `${mt.cpu_load} %`;
         document.getElementById('val-mt-ram').textContent = `${mt.ram_used_mb} MB / ${mt.ram_total_mb} MB`;
-        document.getElementById('val-mt-e1').textContent = mt.ether1_wan ? 'Активен' : 'Отключен';
-        document.getElementById('val-mt-e2').textContent = mt.ether2_pc ? 'Активен (PC)' : 'Отключен';
-        document.getElementById('val-mt-e3').textContent = mt.ether3_pi ? 'Активен (Gateway)' : 'Отключен';
+        document.getElementById('val-mt-e1').textContent = mt.ether1_wan ? 'UP' : 'DOWN';
+        document.getElementById('val-mt-e2').textContent = mt.ether2_pc ? 'UP (PC)' : 'DOWN';
+        document.getElementById('val-mt-e3').textContent = mt.ether3_pi ? 'UP (Gateway)' : 'DOWN';
       }
 
       // Charts
@@ -1258,92 +1308,117 @@
       document.getElementById('repair-modal').classList.remove('active');
     }
 
-    async function triggerAutoRepair() {
-      const btn = document.getElementById('btn-repair');
+    async function startRepairSequence() {
       const modal = document.getElementById('repair-modal');
       const container = document.getElementById('repair-steps-container');
       const summary = document.getElementById('repair-summary');
       const closeBtn = document.getElementById('btn-close-repair');
 
-      btn.classList.add('loading');
-      btn.textContent = 'Восстановление...';
-      modal.classList.add('active');
+      container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.8rem;">Запуск конвейера восстановления эталона...</div>';
+      summary.textContent = 'Выполнение шагов...';
       closeBtn.style.display = 'none';
-
-      container.innerHTML = `
-        <div class="repair-step-row">
-          <span class="badge-status badge-warn">В процессе</span>
-          <div>Подключение к оборудованию и синхронизация правил...</div>
-        </div>
-      `;
-      summary.textContent = 'Выполняется восстановление...';
+      modal.classList.add('active');
 
       try {
         const res = await fetch('/api/repair', { method: 'POST' });
-        const data = await res.json();
-        
+        const result = await res.json();
+
         container.innerHTML = '';
-        if (data.logs && Array.isArray(data.logs)) {
-          data.logs.forEach(item => {
-            const row = document.createElement('div');
-            row.className = 'repair-step-row';
-            let bClass = 'badge-ok';
-            let bText = 'Успешно';
-            if (item.status === 'warning') { bClass = 'badge-warn'; bText = 'Внимание'; }
-            if (item.status === 'error') { bClass = 'badge-err'; bText = 'Ошибка'; }
-            row.innerHTML = `
-              <span class="badge-status ${bClass}">${bText}</span>
-              <div style="flex: 1;">
-                <div style="font-weight: 600; color: #fff;">${item.step}</div>
-                <div style="color: var(--text-muted); font-size: 0.76rem;">${item.msg}</div>
+        if (result.steps) {
+          result.steps.forEach(s => {
+            const el = document.createElement('div');
+            el.className = 'repair-step-item';
+            const icon = s.status === 'ok' ? '●' : '○';
+            el.innerHTML = `
+              <span style="font-size: 0.9rem; color: #ffffff;">${icon}</span>
+              <div>
+                <strong style="color: #ffffff;">${s.step}:</strong>
+                <span style="color: var(--text-muted); margin-left: 6px;">${s.msg}</span>
               </div>
             `;
-            container.appendChild(row);
+            container.appendChild(el);
           });
         }
-
-        summary.textContent = data.success ? '✓ Конфигурация успешно синхронизирована' : '▲ Восстановлено с предупреждениями';
-        summary.style.color = data.success ? 'var(--success)' : 'var(--warning)';
+        summary.textContent = result.success ? '✓ Конфигурация успешно восстановлена' : 'Завершено с предупреждениями';
+        closeBtn.style.display = 'inline-block';
         fetchStatus();
       } catch (err) {
-        summary.textContent = '✕ Ошибка запроса: ' + err.message;
-        summary.style.color = 'var(--danger)';
-      } finally {
-        btn.classList.remove('loading');
-        btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> Починить всё`;
-        closeBtn.style.display = 'block';
+        summary.textContent = `Ошибка: ${err.message}`;
+        closeBtn.style.display = 'inline-block';
       }
     }
-
-    document.getElementById('btn-repair').addEventListener('click', triggerAutoRepair);
 
     // Assistant Drawer Logic
     const chatDrawer = document.getElementById('chat-drawer');
     const chatBackdrop = document.getElementById('chat-backdrop');
-    const chatMessages = document.getElementById('chat-messages');
     const chatTextarea = document.getElementById('chat-textarea');
-    const btnChatSend = document.getElementById('btn-chat-send');
-    const settingsModal = document.getElementById('settings-modal');
+    const chatMessages = document.getElementById('chat-messages');
     const chatModelBadge = document.getElementById('chat-model-badge');
-    const toastEl = document.getElementById('toast-notify');
-    let chatHistory = [];
-
-    function showToast(msg) {
-      toastEl.textContent = msg;
-      toastEl.classList.add('show');
-      setTimeout(() => toastEl.classList.remove('show'), 2500);
-    }
 
     function openChatDrawer() {
-      chatBackdrop.classList.add('active');
       chatDrawer.classList.add('active');
-      setTimeout(() => chatTextarea.focus(), 150);
+      chatBackdrop.classList.add('active');
+      chatTextarea.focus();
     }
 
     function closeChatDrawer() {
-      chatBackdrop.classList.remove('active');
       chatDrawer.classList.remove('active');
+      chatBackdrop.classList.remove('active');
     }
+
+    function sendQuickCommand(cmd) {
+      chatTextarea.value = cmd;
+      handleChatSend();
+    }
+
+    async function handleChatSend() {
+      const text = chatTextarea.value.trim();
+      if (!text) return;
+      chatTextarea.value = '';
+
+      appendChatMessage('user', text);
+
+      const botBubble = document.createElement('div');
+      botBubble.className = 'chat-bubble bubble-bot';
+      botBubble.innerHTML = '<span style="color: var(--text-muted);">Обработка...</span>';
+      chatMessages.appendChild(botBubble);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text })
+        });
+        const data = await res.json();
+        botBubble.innerHTML = renderMarkdown(data.reply);
+      } catch (err) {
+        botBubble.innerHTML = `<span style="color: #666666;">Ошибка: ${err.message}</span>`;
+      }
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function appendChatMessage(role, text) {
+      const b = document.createElement('div');
+      b.className = `chat-bubble ${role === 'user' ? 'bubble-user' : 'bubble-bot'}`;
+      b.textContent = text;
+      chatMessages.appendChild(b);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    document.getElementById('btn-chat-send').addEventListener('click', handleChatSend);
+    chatTextarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleChatSend();
+      }
+    });
+
+    // Settings Modal Logic
+    const settingsModal = document.getElementById('settings-modal');
+    document.getElementById('btn-chat-settings').addEventListener('click', openSettingsModal);
+    document.getElementById('btn-save-settings').addEventListener('click', saveSettings);
+    document.getElementById('btn-copy-context').addEventListener('click', copyContext);
 
     function openSettingsModal() {
       settingsModal.classList.add('active');
@@ -1399,14 +1474,14 @@
       }
     }
 
-    // Markdown Parser (Lightweight)
+    // Markdown Parser
     function renderMarkdown(md) {
       if (!md) return '';
       let text = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       text = text.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
       text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
-      text = text.replace(/^### (.*$)/gim, '<div style="font-weight:600; color:#fff; margin:6px 0;">$1</div>');
-      text = text.replace(/^## (.*$)/gim, '<div style="font-weight:600; color:#fff; margin:6px 0;">$1</div>');
+      text = text.replace(/^### (.*$)/gim, '<div style="font-weight:600; color:#ffffff; margin:6px 0;">$1</div>');
+      text = text.replace(/^## (.*$)/gim, '<div style="font-weight:600; color:#ffffff; margin:6px 0;">$1</div>');
       text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
       
       const lines = text.split('\n');
@@ -1417,81 +1492,28 @@
       for (let l of lines) {
         let trimmed = l.trim();
         if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
-          if (!inTable) { inTable = true; tableHtml = '<table>'; }
+          if (!inTable) { inTable = true; tableHtml = '<table style="width:100%; border-collapse:collapse; margin:8px 0; font-size:0.75rem;">'; }
           if (trimmed.includes('---')) continue;
           let cells = trimmed.split('|').slice(1, -1);
           let tag = tableHtml.includes('<tr>') ? 'td' : 'th';
-          tableHtml += '<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
+          tableHtml += '<tr>' + cells.map(c => `<${tag} style="border:1px solid #222; padding:4px 8px; text-align:left;">${c.trim()}</${tag}>`).join('') + '</tr>';
         } else {
           if (inTable) { inTable = false; tableHtml += '</table>'; out.push(tableHtml); tableHtml = ''; }
           out.push(l);
         }
       }
       if (inTable) out.push(tableHtml + '</table>');
-      text = out.join('\n');
-      text = text.replace(/^\s*-\s+(.*$)/gim, '<li>$1</li>');
-      text = text.replace(/(<li>.*<\/li>)/gims, '<ul>$1</ul>');
-      text = text.replace(/\n\n+/g, '<br><br>');
-      text = text.replace(/\n/g, '<br>');
-      return text;
+      return out.join('<br>').replace(/<br><br>/g, '<br>');
     }
 
-    function appendMessage(text, role = 'bot') {
-      const msgDiv = document.createElement('div');
-      msgDiv.className = `chat-bubble bubble-${role}`;
-      if (role === 'user') msgDiv.textContent = text;
-      else msgDiv.innerHTML = renderMarkdown(text);
-      chatMessages.appendChild(msgDiv);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+    function showToast(msg) {
+      const t = document.getElementById('toast-notify');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2600);
     }
 
-    async function sendChatMessage(customText) {
-      const text = customText !== undefined ? customText : chatTextarea.value.trim();
-      if (!text) return;
-      if (customText === undefined) chatTextarea.value = '';
-
-      appendMessage(text, 'user');
-      btnChatSend.textContent = '...';
-
-      try {
-        const res = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text, history: chatHistory.slice(-8) })
-        });
-        const data = await res.json();
-        if (data.reply) {
-          appendMessage(data.reply, 'bot');
-          chatHistory.push({ role: 'user', text });
-          chatHistory.push({ role: 'model', text: data.reply });
-        } else if (data.error) {
-          appendMessage(`✕ Ошибка: ${data.error}`, 'bot');
-        }
-      } catch (err) {
-        appendMessage(`✕ Ошибка соединения: ${err.message}`, 'bot');
-      } finally {
-        btnChatSend.textContent = 'Отправить';
-      }
-    }
-
-    function sendQuickCommand(cmd) {
-      openChatDrawer();
-      sendChatMessage(cmd);
-    }
-
-    document.getElementById('btn-open-chat').addEventListener('click', openChatDrawer);
-    document.getElementById('btn-chat-settings').addEventListener('click', openSettingsModal);
-    document.getElementById('btn-save-settings').addEventListener('click', saveSettings);
-    document.getElementById('btn-copy-context').addEventListener('click', copyContext);
-    btnChatSend.addEventListener('click', () => sendChatMessage());
-
-    chatTextarea.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendChatMessage();
-      }
-    });
-
+    // Auto-refresh Timer
     setInterval(() => {
       countdown--;
       if (countdown <= 0) {
@@ -1501,7 +1523,7 @@
       timerEl.textContent = `Обновление: ${countdown}с`;
     }, 1000);
 
-    // Initial sequence
+    // Initial Startup
     loadConfig();
     fetchStatus();
     loadSettings();
