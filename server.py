@@ -1,9 +1,12 @@
 import asyncio
+import concurrent.futures
+import http.client
 import json
 import logging
 import os
 import re
 import socket
+import ssl
 import sys
 import threading
 import time
@@ -104,8 +107,9 @@ telemetry_data = {
     "watchdog": {
         "enabled": APP_CONFIG.get("watchdog", {}).get("enabled", True),
         "failures": 0,
-        "threshold": APP_CONFIG.get("watchdog", {}).get("failure_threshold", 3),
-        "last_heal": "Ожидание"
+        "threshold": APP_CONFIG.get("watchdog", {}).get("failure_threshold", 2),
+        "last_heal": "Ожидание",
+        "state": "healthy"
     },
     "mikrotik_traffic": {
         "ether1": {"rx": "0 bps", "tx": "0 bps"},
@@ -212,13 +216,21 @@ def add_log(msg, level="info"):
 def probe_tcp(host, port, timeout=0.8):
     t0 = time.time()
     try:
-        s = socket.create_connection((host, port), timeout=timeout)
+        target_ip = host
+        if not host.replace('.', '').isdigit():
+            try:
+                target_ip = socket.gethostbyname(host)
+            except Exception:
+                return False, 0
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(timeout)
+        s.connect((target_ip, port))
         s.close()
         return True, round((time.time() - t0) * 1000, 1)
     except Exception:
         return False, 0
 
-def test_socks5(host, port, target_host="api.ipify.org", target_port=80, timeout=3.0):
+def test_socks5(host, port, target_host="api.ipify.org", target_port=80, timeout=1.5):
     t0 = time.time()
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -246,7 +258,7 @@ def test_socks5(host, port, target_host="api.ipify.org", target_port=80, timeout
     except Exception as e:
         return False, 0, str(e)
 
-def test_socks_tcp(proxy_host, proxy_port, target_host, target_port=443, timeout=2.0):
+def test_socks_tcp(proxy_host, proxy_port, target_host, target_port=443, timeout=1.0):
     t0 = time.time()
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -268,15 +280,22 @@ def test_socks_tcp(proxy_host, proxy_port, target_host, target_port=443, timeout
     except Exception:
         return False, 0
 
-def test_youtube():
+def test_youtube(timeout=1.5):
     t0 = time.time()
     try:
-        handler = urllib.request.ProxyHandler({})
-        opener = urllib.request.build_opener(handler)
-        req = urllib.request.Request("https://www.youtube.com/generate_204", headers={"User-Agent": "Mozilla/5.0"})
-        with opener.open(req, timeout=3.0) as resp:
-            lat = round((time.time() - t0) * 1000, 1)
-            return True, lat, resp.status
+        ip = socket.gethostbyname("www.youtube.com")
+        ctx = ssl.create_default_context()
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(timeout)
+        s.connect((ip, 443))
+        ss = ctx.wrap_socket(s, server_hostname="www.youtube.com")
+        conn = http.client.HTTPSConnection("www.youtube.com", 443, context=ctx, timeout=timeout)
+        conn.sock = ss
+        conn.request("GET", "/generate_204", headers={"User-Agent": "Mozilla/5.0"})
+        resp = conn.getresponse()
+        lat = round((time.time() - t0) * 1000, 1)
+        conn.close()
+        return True, lat, resp.status
     except Exception as e:
         return False, 0, str(e)
 
@@ -320,8 +339,7 @@ def probe_service_matrix():
     socks_h = vless_cfg.get("socks_host", "127.0.0.1")
     socks_p = vless_cfg.get("socks_port", 10808)
 
-    results = {}
-    for item in matrix:
+    def check_item(item):
         sid = item.get("id")
         target = item.get("target")
         port = item.get("port", 443)
@@ -329,17 +347,22 @@ def probe_service_matrix():
         name = item.get("name", sid)
 
         if route == "socks":
-            ok, lat = test_socks_tcp(socks_h, socks_p, target, port, timeout=2.0)
+            ok, lat = test_socks_tcp(socks_h, socks_p, target, port, timeout=1.0)
         else:
-            ok, lat = probe_tcp(target, port, timeout=1.5)
+            ok, lat = probe_tcp(target, port, timeout=0.8)
 
-        results[sid] = {
+        return sid, {
             "name": name,
             "target": target,
             "route": route,
             "status": "online" if ok else "offline",
             "latency": lat
         }
+
+    results = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(len(matrix), 1)) as executor:
+        for sid, res in executor.map(check_item, matrix):
+            results[sid] = res
     return results
 
 class PiCollector:
@@ -625,8 +648,8 @@ def check_process_running(proc_name):
 def telemetry_worker():
     refresh_sec = APP_CONFIG.get("app", {}).get("refresh_seconds", 7)
     watchdog_cfg = APP_CONFIG.get("watchdog", {})
-    watchdog_threshold = watchdog_cfg.get("failure_threshold", 3)
-    watchdog_cooldown = watchdog_cfg.get("cooldown_seconds", 120)
+    watchdog_threshold = watchdog_cfg.get("failure_threshold", 2)
+    watchdog_cooldown = watchdog_cfg.get("cooldown_seconds", 45)
     
     watchdog_consecutive_fails = 0
     watchdog_last_heal = 0
@@ -796,28 +819,33 @@ def telemetry_worker():
                 watchdog_consecutive_fails += 1
                 with telemetry_lock:
                     telemetry_data["watchdog"]["failures"] = watchdog_consecutive_fails
+                    telemetry_data["watchdog"]["state"] = "healing" if (watchdog_consecutive_fails >= watchdog_threshold) else "failing"
                 
                 if w_enabled and watchdog_consecutive_fails >= watchdog_threshold:
                     now = time.time()
                     if now - watchdog_last_heal > watchdog_cooldown:
                         watchdog_last_heal = now
-                        watchdog_consecutive_fails = 0
                         time_str = time.strftime("%H:%M:%S")
                         with telemetry_lock:
-                            telemetry_data["watchdog"]["failures"] = 0
                             telemetry_data["watchdog"]["last_heal"] = time_str
+                            telemetry_data["watchdog"]["state"] = "healing"
                         
                         add_log(f"Watchdog: {watchdog_threshold} сбоев подряд. Запуск автовосстановления...", "warning")
                         logger.warning("Watchdog triggered self-repair")
                         rep_logs = run_self_repair()
+                        watchdog_consecutive_fails = 0
+                        with telemetry_lock:
+                            telemetry_data["watchdog"]["failures"] = 0
+                            telemetry_data["watchdog"]["state"] = "healthy"
                         add_log("Watchdog: Автовосстановление выполнено", "success")
                         if tg_bot.enabled:
                             tg_bot.send_message(f"⚠️ **NETPULSE Watchdog: Автовосстановление**\nЗафиксировано {watchdog_threshold} сбоев подряд.\nКонвейер починки выполнен в {time_str}.")
             else:
                 if watchdog_consecutive_fails > 0:
                     watchdog_consecutive_fails = 0
-                    with telemetry_lock:
-                        telemetry_data["watchdog"]["failures"] = 0
+                with telemetry_lock:
+                    telemetry_data["watchdog"]["failures"] = 0
+                    telemetry_data["watchdog"]["state"] = "healthy"
 
             add_log(f"Проверка: YouTube={yt_lat}ms, VPN={vless_lat}ms ({vless_ip})", "success" if (yt_ok and vless_ok) else "warning")
 
@@ -825,7 +853,8 @@ def telemetry_worker():
             logger.error(f"Error in telemetry loop: {e}")
             add_log(f"Ошибка сбора метрик: {e}", "error")
 
-        time.sleep(refresh_sec)
+        sleep_time = 2 if (not is_healthy and watchdog_consecutive_fails < watchdog_threshold) else refresh_sec
+        time.sleep(sleep_time)
 
 def enforce_windows_direct_proxy():
     if sys.platform != "win32":

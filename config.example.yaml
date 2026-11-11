@@ -107,8 +107,8 @@ repair:
 # Self-Healing Watchdog (automatic repair upon consecutive failures)
 watchdog:
   enabled: true
-  failure_threshold: 3
-  cooldown_seconds: 120
+  failure_threshold: 2
+  cooldown_seconds: 45
 
 # Wake-on-LAN configuration
 wol:

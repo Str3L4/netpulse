@@ -254,6 +254,14 @@
     .status-dot.offline {
       background: #333333;
     }
+    .status-dot.pulse {
+      background: #ffffff;
+      animation: dot-pulse 0.8s infinite alternate ease-in-out;
+    }
+    @keyframes dot-pulse {
+      0% { opacity: 0.2; transform: scale(0.8); }
+      100% { opacity: 1; transform: scale(1.3); box-shadow: 0 0 8px rgba(255, 255, 255, 0.9); }
+    }
 
     /* Main Telemetry Grids */
     .grid-3 {
@@ -738,6 +746,15 @@
         </button>
       </div>
     </header>
+
+    <!-- Auto-Healing Alert Banner (hidden by default) -->
+    <div id="watchdog-alert-banner" style="display: none; margin-bottom: 16px; background: #111111; border: 1px solid #ffffff; padding: 10px 16px; border-radius: 4px; align-items: center; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="status-dot pulse" id="dot-watchdog-alert"></span>
+        <span id="watchdog-alert-text" style="color: #ffffff; font-weight: 600;">ВНИМАНИЕ: Зафиксирован сбой обхода...</span>
+      </div>
+      <span style="color: #888888; font-size: 11px;" id="watchdog-alert-time"></span>
+    </div>
 
     <!-- Topology Bus Section -->
     <div class="topology-section">
@@ -1289,9 +1306,40 @@
       if (data.watchdog) {
         const dot = document.getElementById('dot-watchdog');
         const stateEl = document.getElementById('val-watchdog-state');
+        const alertBanner = document.getElementById('watchdog-alert-banner');
+        const alertText = document.getElementById('watchdog-alert-text');
+        const alertTime = document.getElementById('watchdog-alert-time');
+
+        const w = data.watchdog;
         if (dot && stateEl) {
-          dot.className = `status-dot ${data.watchdog.enabled ? 'online' : 'offline'}`;
-          stateEl.textContent = data.watchdog.enabled ? 'ВКЛ' : 'ВЫКЛ';
+          if (!w.enabled) {
+            dot.className = 'status-dot offline';
+            stateEl.textContent = 'ВЫКЛ';
+            if (alertBanner) alertBanner.style.display = 'none';
+          } else if (w.state === 'healing') {
+            dot.className = 'status-dot pulse';
+            stateEl.textContent = 'ВОССТАНОВЛЕНИЕ...';
+            if (alertBanner) {
+              alertBanner.style.display = 'flex';
+              alertText.textContent = `⚡ WATCHDOG: Зафиксирован сбой обхода. Выполняется автоматическое восстановление...`;
+              alertTime.textContent = new Date().toLocaleTimeString();
+            }
+          } else if (w.failures > 0) {
+            dot.className = 'status-dot pulse';
+            stateEl.textContent = `СБОЙ (${w.failures}/${w.threshold})`;
+            if (alertBanner) {
+              alertBanner.style.display = 'flex';
+              alertText.textContent = `⚠ WATCHDOG: Зафиксирован сбой обхода (${w.failures}/${w.threshold}). Подготовка к автохилингу...`;
+              alertTime.textContent = new Date().toLocaleTimeString();
+            }
+          } else {
+            dot.className = 'status-dot online';
+            stateEl.textContent = `ВКЛ (0/${w.threshold})`;
+            if (alertBanner && alertBanner.style.display !== 'none') {
+              alertBanner.style.display = 'none';
+              showToast('✓ Связь восстановлена. Все компоненты в норме.');
+            }
+          }
         }
       }
 
