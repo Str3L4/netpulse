@@ -1052,6 +1052,10 @@ def run_self_repair():
                 for ggc_net in ggc_subnets:
                     c_mt.exec_command(f':if ([:len [/ip firewall address-list find list="UNBLOCK-ZAPRET" address="{ggc_net}"]] = 0) do={{/ip firewall address-list add list=UNBLOCK-ZAPRET address="{ggc_net}" comment="Google/GGC"}}')
                 
+                reject_subnets = mt_repair.get("reject_subnets", [])
+                for r_net in reject_subnets:
+                    c_mt.exec_command(f':if ([:len [/ip firewall filter find comment~"Reject dead GGC" dst-address="{r_net}"]] = 0) do={{/ip firewall filter add chain=forward action=reject reject-with=tcp-reset protocol=tcp dst-address="{r_net}" comment="Reject dead GGC" place-before=[/ip firewall filter find comment~"Block QUIC"]}}')
+                
                 if mt_repair.get("discord_mangle", True):
                     c_mt.exec_command('/ip firewall mangle set [find comment~"Discord Voice"] dst-address-list=UNBLOCK-ZAPRET')
                 if mt_repair.get("fasttrack_enabled", True):

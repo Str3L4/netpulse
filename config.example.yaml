@@ -98,8 +98,16 @@ repair:
     discord_mangle: true
     fasttrack_enabled: true
     ggc_capture_sni: true
-    flush_subnets: []
+    flush_subnets:
+      - "178.49."
+      - "37.193."
+      - "194.150."
+    reject_subnets:
+      - "194.150.0.0/16"
     ggc_subnets:
+      - "178.49.0.0/16"
+      - "37.193.0.0/16"
+      - "178.49.156.0/22"
       - "172.253.0.0/16"
       - "108.177.0.0/17"
       - "209.85.128.0/17"
