@@ -22,6 +22,7 @@ __pycache__/
 # Scratch scripts
 test_*.py
 scratch/
+vpn_servers/
 
 # Virtual environments
 .venv/
